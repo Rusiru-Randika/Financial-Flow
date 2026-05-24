@@ -279,10 +279,10 @@ function App() {
             <div className="logo-icon" style={{ margin: '0 auto 1.5rem', width: '50px', height: '50px' }}>
               <Sparkles size={28} fill="white" />
             </div>
-            <h2 className="wizard-title">Welcome to FinanceFlow</h2>
+            <h2 className="wizard-title">Welcome to Financial Flow</h2>
             <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>
               To get started, let's initialize your first <strong>Financial Month</strong>. 
-              FinanceFlow lets you customize your cycles and start/stop months manually, adapting to your personal billing intervals.
+              Financial Flow lets you customize your cycles and start/stop months manually, adapting to your personal billing intervals.
             </p>
             <form onSubmit={handleStartMonth} style={{ textAlign: 'left' }}>
               <div className="form-group">
@@ -326,7 +326,7 @@ function App() {
           <div className="logo-icon">
             <Sparkles size={22} fill="white" />
           </div>
-          <span className="logo-text">FinanceFlow</span>
+          <span className="logo-text">Financial Flow</span>
         </div>
 
         <nav style={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }}>

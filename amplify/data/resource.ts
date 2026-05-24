@@ -1,7 +1,7 @@
 import { type ClientSchema, a, defineData } from '@aws-amplify/backend';
 
 /*
-  Define the data models for the Budget Tracker application.
+  Define the data models for the Financial Flow application.
   This creates DynamoDB tables and standard AppSync GraphQL mutations/queries.
   
   The schema has:
