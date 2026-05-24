@@ -70,6 +70,15 @@ const localDB = {
 
 // --- BRIDGED DATA CONNECTOR API ---
 
+// Prefer createdAt (time) when available; fallback to date-only.
+// ISO timestamps are lexicographically sortable.
+const compareByRecency = (a: { createdAt?: string; date: string }, b: { createdAt?: string; date: string }) => {
+  const aKey = a.createdAt || `${a.date}T00:00:00.000Z`;
+  const bKey = b.createdAt || `${b.date}T00:00:00.000Z`;
+  if (aKey !== bKey) return bKey.localeCompare(aKey);
+  return b.date.localeCompare(a.date);
+};
+
 export const dbConnector = {
   // --- FINANCIAL MONTHS API ---
 
@@ -212,7 +221,7 @@ export const dbConnector = {
           type: item.type as 'EXPENSE' | 'INCOME',
           financialMonthId: item.financialMonthId || undefined,
           createdAt: item.createdAt,
-        })).sort((a: any, b: any) => b.date.localeCompare(a.date));
+        })).sort(compareByRecency);
       } catch (err) {
         console.error('Amplify fetchTransactions failed, falling back to local:', err);
         throw err;
@@ -220,7 +229,7 @@ export const dbConnector = {
     }
 
     // Default Local Storage
-    return localDB.getTransactions().sort((a, b) => b.date.localeCompare(a.date));
+    return localDB.getTransactions().sort(compareByRecency);
   },
 
   async createTransaction(tx: Omit<Transaction, 'id'>): Promise<Transaction> {
@@ -240,7 +249,12 @@ export const dbConnector = {
         if (response.errors) {
           throw new Error(response.errors.map((e: any) => e.message).join(', '));
         }
-        return response.data as unknown as Transaction;
+        const created = response.data as unknown as Transaction;
+        return {
+          ...newTx,
+          ...created,
+          createdAt: created?.createdAt || newTx.createdAt,
+        };
       } catch (err) {
         console.error('Amplify createTransaction failed:', err);
         throw err;

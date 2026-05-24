@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import type { Transaction, Debt } from '../types';
 import { ArrowDownRight, ArrowUpRight, Users, Wallet, Calendar, BarChart2, PieChart, TrendingUp } from 'lucide-react';
 
@@ -8,8 +8,17 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ transactions, debts }) => {
+  const [showAllRecentExpenses, setShowAllRecentExpenses] = useState(false);
+
   const expenses = transactions.filter(t => t.type === 'EXPENSE');
   const incomes  = transactions.filter(t => t.type === 'INCOME');
+
+  const RECENT_EXPENSES_DEFAULT_COUNT = 3;
+  const canExpandRecentExpenses = expenses.length > RECENT_EXPENSES_DEFAULT_COUNT;
+  const visibleRecentExpenses = useMemo(
+    () => (showAllRecentExpenses ? expenses : expenses.slice(0, RECENT_EXPENSES_DEFAULT_COUNT)),
+    [expenses, showAllRecentExpenses]
+  );
 
   const totalExpenses = expenses.reduce((acc, t) => acc + t.amount, 0);
   const totalIncomes  = incomes.reduce((acc, t)  => acc + t.amount, 0);
@@ -362,7 +371,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ transactions, debts }) => 
                 <h3 className="chart-title">Receivables vs Payables</h3>
               </div>
             </div>
-            <div className="chart-container" style={{ height: chartMinH, minHeight: chartMinH }}>
+            <div className="chart-container" style={{ flex: '1 1 0', minHeight: chartMinH, paddingBottom: '1.6rem' }}>
               {debtSeries.length === 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)' }}>
                   <Users size={28} style={{ opacity: 0.25 }} />
@@ -395,17 +404,30 @@ export const Dashboard: React.FC<DashboardProps> = ({ transactions, debts }) => 
                   );
                 })()
               )}
-            </div>
 
-            <div className="chart-legend" style={{ marginTop: '0.6rem', fontSize: '0.75rem' }}>
-              <div className="legend-item">
-                <span className="legend-color" style={{ backgroundColor: 'var(--status-income)' }} />
-                Receivable
-              </div>
-              <div className="legend-item">
-                <span className="legend-color" style={{ backgroundColor: 'var(--status-expense)' }} />
-                Payable
-              </div>
+              {debtSeries.length > 0 && (
+                <div
+                  className="chart-legend"
+                  style={{
+                    position: 'absolute',
+                    bottom: '0.55rem',
+                    left: 0,
+                    right: 0,
+                    marginTop: 0,
+                    fontSize: '0.75rem',
+                    gap: '1.25rem',
+                  }}
+                >
+                  <div className="legend-item">
+                    <span className="legend-color" style={{ backgroundColor: 'var(--status-income)' }} />
+                    Receivable
+                  </div>
+                  <div className="legend-item">
+                    <span className="legend-color" style={{ backgroundColor: 'var(--status-expense)' }} />
+                    Payable
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -524,9 +546,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ transactions, debts }) => 
 
       {/* ── Recent Expenses ── */}
       <div className="card recent-transactions-card" style={{ display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.65rem' }}>
-          <TrendingUp size={14} style={{ color: '#f43f5e' }} />
-          <h3 className="chart-title">Recent Expenses</h3>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '0.65rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+            <TrendingUp size={14} style={{ color: '#f43f5e' }} />
+            <h3 className="chart-title">Recent Expenses</h3>
+          </div>
         </div>
 
         <div style={{ overflowX: 'auto', overflowY: 'auto', flex: 1 }}>
@@ -559,7 +583,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ transactions, debts }) => 
                     </tr>
                   </thead>
                   <tbody>
-                    {expenses.slice(0, 4).map(tx => (
+                    {visibleRecentExpenses.map(tx => (
                       <tr key={tx.id}>
                         <td style={{ color: 'var(--text-muted)' }}>{tx.date}</td>
                         <td style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{tx.description}</td>
@@ -582,7 +606,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ transactions, debts }) => 
 
               {/* Mobile list: Description + Amount primary */}
               <div className="recent-expenses-mobile">
-                {expenses.slice(0, 4).map((tx) => (
+                {visibleRecentExpenses.map((tx) => (
                   <div key={tx.id} className="recent-expense-item">
                     <div className="recent-expense-main">
                       <div className="recent-expense-desc">{tx.description}</div>
@@ -603,6 +627,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ transactions, debts }) => 
             </>
           )}
         </div>
+
+        {canExpandRecentExpenses && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.65rem' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ padding: '0.35rem 0.6rem', fontSize: '0.78rem' }}
+              onClick={() => setShowAllRecentExpenses((v) => !v)}
+            >
+              {showAllRecentExpenses ? 'View less' : 'View more'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
