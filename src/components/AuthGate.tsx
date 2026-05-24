@@ -4,11 +4,10 @@ import { signIn, signUp, confirmSignUp, getCurrentUser } from 'aws-amplify/auth'
 
 interface AuthGateProps {
   onSuccess: (user: any) => void;
-  onCancel: () => void;
   onNotify: (msg: string, type: 'success' | 'error' | 'info') => void;
 }
 
-export const AuthGate: React.FC<AuthGateProps> = ({ onSuccess, onCancel, onNotify }) => {
+export const AuthGate: React.FC<AuthGateProps> = ({ onSuccess, onNotify }) => {
   const [authStep, setAuthStep] = useState<'signin' | 'signup' | 'confirm'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -183,15 +182,6 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onSuccess, onCancel, onNotif
                   Register
                 </button>
               </div>
-              <div style={{ borderTop: '1px solid var(--border-color)', width: '100%', paddingTop: '1rem', textAlign: 'center' }}>
-                <button
-                  type="button"
-                  onClick={onCancel}
-                  style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
-                >
-                  ← Back to Local Storage
-                </button>
-              </div>
             </div>
           </form>
         )}
@@ -234,15 +224,6 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onSuccess, onCancel, onNotif
                   style={{ background: 'none', border: 'none', color: 'var(--accent-teal)', cursor: 'pointer', fontWeight: 600 }}
                 >
                   Sign In
-                </button>
-              </div>
-              <div style={{ borderTop: '1px solid var(--border-color)', width: '100%', paddingTop: '1rem', textAlign: 'center' }}>
-                <button
-                  type="button"
-                  onClick={onCancel}
-                  style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
-                >
-                  ← Back to Local Storage
                 </button>
               </div>
             </div>

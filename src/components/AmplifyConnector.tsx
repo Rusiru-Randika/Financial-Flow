@@ -148,9 +148,6 @@ export const AmplifyConnector: React.FC<AmplifyConnectorProps> = ({
             onUserChange(currentUser);
             setDBMode('amplify');
           }}
-          onCancel={() => {
-            setDBMode('local');
-          }}
           onNotify={onNotify}
         />
       ) : (

@@ -1,17 +1,15 @@
 import { useState, useEffect } from 'react';
-import { dbConnector, getDBMode, setDBMode } from './dbConnector';
+import { dbConnector } from './dbConnector';
 import type { Transaction, Debt, FinancialMonth } from './types';
 import { Dashboard } from './components/Dashboard';
 import { Transactions } from './components/Transactions';
 import { DebtsManager } from './components/DebtsManager';
-import { AmplifyConnector } from './components/AmplifyConnector';
 import { AuthGate } from './components/AuthGate';
 import { getCurrentUser, signOut, fetchUserAttributes } from 'aws-amplify/auth';
 import { 
   TrendingUp, 
   List, 
   Coins, 
-  Cloud, 
   Plus, 
   Loader, 
   Sparkles,
@@ -30,14 +28,13 @@ interface Toast {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'transactions' | 'debts' | 'cloud'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'transactions' | 'debts'>('dashboard');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [debts, setDebts] = useState<Debt[]>([]);
   const [financialMonths, setFinancialMonths] = useState<FinancialMonth[]>([]);
   const [selectedMonthId, setSelectedMonthId] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [dbMode, setDbMode] = useState<'local' | 'amplify'>('local');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // AWS Amplify Authentication States
@@ -62,10 +59,7 @@ function App() {
   };
 
   const loadData = async () => {
-    const currentMode = getDBMode();
-    setDbMode(currentMode);
-
-    if (currentMode === 'amplify' && !user) {
+    if (!user) {
       setTransactions([]);
       setDebts([]);
       setFinancialMonths([]);
@@ -134,16 +128,21 @@ function App() {
   useEffect(() => {
     const initializeAuth = async () => {
       setAuthLoading(true);
+      let configured = false;
       try {
         const config = (await import('../amplify_outputs.json')) as any;
         if (config && config.auth && config.auth.user_pool_id) {
           setIsAmplifyConfigured(true);
-          
-          // Auto-enable Amplify mode on first boot if Amplify is configured
-          if (!localStorage.getItem('budget_tracker_db_mode')) {
-            setDBMode('amplify');
-          }
+          configured = true;
+        } else {
+          setIsAmplifyConfigured(false);
+        }
+      } catch (err) {
+        setIsAmplifyConfigured(false);
+      }
 
+      if (configured) {
+        try {
           const currentUser = await getCurrentUser();
           setUser(currentUser);
           
@@ -157,30 +156,22 @@ function App() {
           } catch (attrsErr) {
             setUserEmail(currentUser.signInDetails?.loginId || currentUser.username);
           }
-        } else {
-          setIsAmplifyConfigured(false);
+        } catch (authErr) {
+          // Unauthenticated session is normal, keep user = null
+          setUser(null);
+          setUserEmail('');
         }
-      } catch (err) {
-        setIsAmplifyConfigured(false);
-      } finally {
-        setAuthLoading(false);
       }
+      setAuthLoading(false);
     };
 
     initializeAuth();
-
-    // Listen for database mode switch events
-    const handleDbChange = () => {
-      setDbMode(getDBMode());
-    };
-    window.addEventListener('db-mode-changed', handleDbChange);
-    return () => window.removeEventListener('db-mode-changed', handleDbChange);
   }, []);
 
-  // Reload data when dbMode or user authentication state changes
+  // Reload data when user authentication state changes
   useEffect(() => {
     loadData();
-  }, [dbMode, user]);
+  }, [user]);
 
   const handleStartMonth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -270,13 +261,67 @@ function App() {
     );
   }
 
-  if (dbMode === 'amplify' && !user) {
+  if (!isAmplifyConfigured) {
+    return (
+      <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', padding: '2rem' }}>
+        <div className="card" style={{ maxWidth: '600px', width: '100%', padding: '2.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+            <div className="logo-icon" style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0' }}>
+              <Sparkles size={20} fill="white" />
+            </div>
+            <h2 className="wizard-title" style={{ fontSize: '1.5rem', margin: 0, background: 'linear-gradient(to right, #ffffff, #e2e8f0)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Amplify Backend Connection Required</h2>
+          </div>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontSize: '0.95rem', lineHeight: '1.5' }}>
+            Financial Flow is a cloud-first application requiring AWS Amplify Cognito for user accounts and DynamoDB for database storage. No local storage mode is available.
+          </p>
+          
+          <h4 style={{ marginBottom: '1rem', fontSize: '1rem', color: 'var(--text-primary)' }}>
+            To deploy the backend and configure this application:
+          </h4>
+          
+          <div className="cloud-panel-details" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div className="cloud-step-card" style={{ display: 'flex', gap: '1rem', backgroundColor: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <div className="step-num" style={{ backgroundColor: 'var(--accent-teal)', color: 'black', fontWeight: 'bold', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>1</div>
+              <div className="step-content">
+                <p style={{ fontWeight: 600, marginBottom: '0.25rem', color: 'var(--text-primary)' }}>Start Amplify Sandbox</p>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
+                  Run this command in your project root directory: <br />
+                  <code style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.3)', padding: '0.5rem', borderRadius: '4px', marginTop: '0.25rem', fontFamily: 'monospace' }}>npx ampx sandbox</code>
+                </p>
+              </div>
+            </div>
+            
+            <div className="cloud-step-card" style={{ display: 'flex', gap: '1rem', backgroundColor: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <div className="step-num" style={{ backgroundColor: 'var(--accent-teal)', color: 'black', fontWeight: 'bold', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>2</div>
+              <div className="step-content">
+                <p style={{ fontWeight: 600, marginBottom: '0.25rem', color: 'var(--text-primary)' }}>Configure AWS Auth</p>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
+                  Amplify will automatically create your Cognito user pools and DynamoDB tables. Ensure you follow prompts to log into AWS.
+                </p>
+              </div>
+            </div>
+
+            <div className="cloud-step-card" style={{ display: 'flex', gap: '1rem', backgroundColor: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <div className="step-num" style={{ backgroundColor: 'var(--accent-teal)', color: 'black', fontWeight: 'bold', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>3</div>
+              <div className="step-content">
+                <p style={{ fontWeight: 600, marginBottom: '0.25rem', color: 'var(--text-primary)' }}>Reload Application</p>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
+                  Once deployment finishes, <code>amplify_outputs.json</code> will be generated in the root. Refresh this page to access the login gate.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
     return (
       <div className="app-container">
         <AuthGate 
           onSuccess={async (currentUser) => {
             setUser(currentUser);
-            setDBMode('amplify');
             try {
               const attrs = await fetchUserAttributes();
               if (attrs.email) {
@@ -287,9 +332,6 @@ function App() {
             } catch (e) {
               setUserEmail(currentUser.signInDetails?.loginId || currentUser.username);
             }
-          }}
-          onCancel={() => {
-            setDBMode('local');
           }}
           onNotify={addToast}
         />
@@ -385,20 +427,12 @@ function App() {
                 <Coins /> Payables & Receivables
               </button>
             </li>
-            <li>
-              <button 
-                className={`nav-link ${activeTab === 'cloud' ? 'active' : ''}`} 
-                onClick={() => { setActiveTab('cloud'); setMobileMenuOpen(false); }}
-                style={{ width: '100%', background: 'none', border: 'none', textAlign: 'left' }}
-              >
-                <Cloud /> AWS Cloud Settings
-              </button>
-            </li>
+
           </ul>
         </nav>
 
         <div className="sidebar-footer" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {dbMode === 'amplify' && user && (
+          {user && (
             <div style={{
               display: 'flex',
               flexDirection: 'column',
@@ -436,8 +470,7 @@ function App() {
                     await signOut();
                     setUser(null);
                     setUserEmail('');
-                    setDBMode('local');
-                    addToast('Signed out of AWS Cloud Sync.', 'info');
+                    addToast('Signed out of Financial Flow.', 'info');
                   } catch (err: any) {
                     addToast(err.message || 'Failed to sign out.', 'error');
                   } finally {
@@ -450,34 +483,14 @@ function App() {
             </div>
           )}
           
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                backgroundColor: dbMode === 'amplify' && user ? '#10b981' : '#64748b'
-              }}></span>
-              <span>Cloud Sync: <strong>{dbMode === 'amplify' && user ? 'ON' : 'OFF'}</strong></span>
-            </div>
-            
-            {dbMode === 'local' && isAmplifyConfigured && (
-              <button 
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--accent-teal)',
-                  cursor: 'pointer',
-                  fontWeight: 600,
-                  fontSize: '0.8rem'
-                }}
-                onClick={() => {
-                  setDBMode('amplify');
-                }}
-              >
-                Sign In
-              </button>
-            )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+            <span style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              backgroundColor: '#10b981'
+            }}></span>
+            <span>Cloud Connected (Amplify)</span>
           </div>
         </div>
       </aside>
@@ -490,13 +503,11 @@ function App() {
               {activeTab === 'dashboard' && 'Financial Overview'}
               {activeTab === 'transactions' && 'Expenses Ledger'}
               {activeTab === 'debts' && 'Payables & Receivables'}
-              {activeTab === 'cloud' && 'AWS Cloud Integration'}
             </h1>
             <p>
               {activeTab === 'dashboard' && 'Monitor balances, spending charts, and trends.'}
               {activeTab === 'transactions' && 'Add, edit, filter, and track transactions with math formulas.'}
               {activeTab === 'debts' && 'Track payables and receivables across your financial cycles.'}
-              {activeTab === 'cloud' && 'Configure AWS Amplify hosting and data sync configurations.'}
             </p>
           </div>
 
@@ -527,11 +538,9 @@ function App() {
               </div>
             )}
 
-            {activeTab !== 'cloud' && (
-              <button className="btn btn-secondary" onClick={() => loadData()} disabled={loading}>
-                {loading ? <Loader className="animate-spin" size={14} /> : 'Sync UI'}
-              </button>
-            )}
+            <button className="btn btn-secondary" onClick={() => loadData()} disabled={loading}>
+              {loading ? <Loader className="animate-spin" size={14} /> : 'Sync UI'}
+            </button>
             
             {activeTab === 'dashboard' && (
               <button className="btn btn-primary" onClick={() => setActiveTab('transactions')}>
@@ -557,14 +566,6 @@ function App() {
             )}
             {activeTab === 'debts' && (
               <DebtsManager debts={filteredDebts} selectedMonthId={selectedMonthId} onNotify={addToast} onRefresh={loadData} />
-            )}
-            {activeTab === 'cloud' && (
-              <AmplifyConnector 
-                user={user}
-                isAmplifyConfigured={isAmplifyConfigured}
-                onUserChange={setUser}
-                onNotify={addToast} 
-              />
             )}
           </>
         )}

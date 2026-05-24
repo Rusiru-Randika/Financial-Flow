@@ -3,7 +3,6 @@ import { generateClient } from 'aws-amplify/api';
 import type { Schema } from '../amplify/data/resource';
 
 // Local storage key constants
-const KEY_MODE = 'budget_tracker_db_mode';
 const KEY_MONTHS = 'budget_tracker_months';
 const KEY_TRANSACTIONS = 'budget_tracker_transactions';
 const KEY_DEBTS = 'budget_tracker_debts';
@@ -12,12 +11,10 @@ export type DBMode = 'local' | 'amplify';
 
 // Helper to determine active database mode
 export function getDBMode(): DBMode {
-  const stored = localStorage.getItem(KEY_MODE);
-  return (stored as DBMode) || 'local';
+  return 'amplify';
 }
 
-export function setDBMode(mode: DBMode) {
-  localStorage.setItem(KEY_MODE, mode);
+export function setDBMode(_mode: DBMode) {
   window.dispatchEvent(new Event('db-mode-changed'));
 }
 
