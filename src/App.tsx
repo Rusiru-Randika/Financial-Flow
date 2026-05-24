@@ -427,6 +427,9 @@ function App() {
       <div className="app-container">
         <AuthGate 
           onSuccess={async (currentUser) => {
+            // After auth, always land on dashboard and ensure mobile sidebar isn't stuck open.
+            setActiveTab('dashboard');
+            setMobileMenuOpen(false);
             setUser(currentUser);
             try {
               const attrs = await fetchUserAttributes();
@@ -597,6 +600,8 @@ function App() {
                     setLoading(true);
                     await signOut();
                     clearLocalUserData();
+                    setMobileMenuOpen(false);
+                    setActiveTab('dashboard');
                     setUser(null);
                     setUserEmail('');
                     addToast('Signed out of Financial Flow.', 'info');
