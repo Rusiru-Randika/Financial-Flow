@@ -1,0 +1,27 @@
+{
+  "name": "Financial Flow",
+  "short_name": "Flow",
+  "description": "Track expenses, income, payables, and receivables across financial cycles.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "background_color": "#060912",
+  "theme_color": "#060912",
+  "orientation": "portrait",
+  "categories": ["finance", "productivity"],
+  "icons": [
+    {
+      "src": "/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/app-icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

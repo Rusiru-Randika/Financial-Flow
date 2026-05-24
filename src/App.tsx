@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { dbConnector } from './dbConnector';
+import { clearLocalUserData, dbConnector } from './dbConnector';
 import type { Transaction, Debt, FinancialMonth } from './types';
 import { Dashboard } from './components/Dashboard';
 import { Transactions } from './components/Transactions';
@@ -19,7 +19,8 @@ import {
   Play,
   Square,
   LogOut,
-  User
+  User,
+  Trash2
 } from 'lucide-react';
 
 interface Toast {
@@ -27,6 +28,35 @@ interface Toast {
   message: string;
   type: 'success' | 'error' | 'info';
 }
+
+const toUTCDate = (dateStr: string) => new Date(`${dateStr}T00:00:00Z`);
+
+const formatCycleName = (startDateStr: string, endDateStr?: string) => {
+  const start = toUTCDate(startDateStr);
+  const startMonth = start.toLocaleString('en-US', { month: 'long', timeZone: 'UTC' });
+  const startDay = start.getUTCDate();
+  const startYear = start.getUTCFullYear();
+
+  if (!endDateStr) {
+    return `${startMonth} ${startDay} ${startYear}`;
+  }
+
+  const end = toUTCDate(endDateStr);
+  const endMonth = end.toLocaleString('en-US', { month: 'long', timeZone: 'UTC' });
+  const endDay = end.getUTCDate();
+  const endYear = end.getUTCFullYear();
+
+  if (startYear === endYear) {
+    return `${startMonth} ${startDay} - ${endMonth} ${endDay} ${endYear}`;
+  }
+  return `${startMonth} ${startDay} ${startYear} - ${endMonth} ${endDay} ${endYear}`;
+};
+
+const previousDayISO = (dateStr: string) => {
+  const d = toUTCDate(dateStr);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().substring(0, 10);
+};
 
 function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'transactions' | 'debts'>('dashboard');
@@ -37,6 +67,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showNewEntryFromHome, setShowNewEntryFromHome] = useState(false);
 
   // AWS Amplify Authentication States
   const [user, setUser] = useState<any>(null);
@@ -46,8 +77,21 @@ function App() {
 
   // Month manager states
   const [showMonthManager, setShowMonthManager] = useState(false);
-  const [newMonthName, setNewMonthName] = useState('');
+  const [monthNameTouched, setMonthNameTouched] = useState(false);
   const [newMonthStart, setNewMonthStart] = useState(new Date().toISOString().substring(0, 10));
+  const [newMonthName, setNewMonthName] = useState(() => formatCycleName(new Date().toISOString().substring(0, 10)));
+
+  const handleNewMonthNameChange = (value: string) => {
+    setMonthNameTouched(true);
+    setNewMonthName(value);
+  };
+
+  const handleNewMonthStartChange = (value: string) => {
+    setNewMonthStart(value);
+    if (!monthNameTouched) {
+      setNewMonthName(formatCycleName(value));
+    }
+  };
 
   const addToast = (message: string, type: 'success' | 'error' | 'info') => {
     const id = Math.random().toString(36).substring(2, 9);
@@ -186,9 +230,11 @@ function App() {
       // 1. Deactivate current active month if exists
       const activeMonth = financialMonths.find(m => m.active);
       if (activeMonth) {
+        const endDate = previousDayISO(newMonthStart);
         await dbConnector.updateFinancialMonth(activeMonth.id, {
           active: false,
-          endDate: newMonthStart, // Close current month on start of next month
+          endDate, // Close current month on day before next cycle starts
+          name: formatCycleName(activeMonth.startDate, endDate),
         });
       }
 
@@ -200,7 +246,10 @@ function App() {
       });
 
       addToast(`Financial month "${created.name}" started!`, 'success');
-      setNewMonthName('');
+      const todayISO = new Date().toISOString().substring(0, 10);
+      setMonthNameTouched(false);
+      setNewMonthStart(todayISO);
+      setNewMonthName(formatCycleName(todayISO));
       setShowMonthManager(false);
       setSelectedMonthId(created.id);
       await loadData();
@@ -220,9 +269,11 @@ function App() {
     try {
       setLoading(true);
       const todayStr = new Date().toISOString().substring(0, 10);
+      const month = financialMonths.find((m) => m.id === monthId);
       await dbConnector.updateFinancialMonth(monthId, {
         active: false,
         endDate: todayStr,
+        ...(month ? { name: formatCycleName(month.startDate, todayStr) } : {}),
       });
 
       addToast('Financial month stopped successfully.', 'info');
@@ -235,23 +286,76 @@ function App() {
     }
   };
 
-  // Filter items by selected month
-  const oldestMonth = financialMonths[financialMonths.length - 1];
-
-  const filteredTransactions = transactions.filter(t => {
-    if (t.financialMonthId) {
-      return t.financialMonthId === selectedMonthId;
+  const handleDeleteMonth = async (monthId: string) => {
+    const month = financialMonths.find((m) => m.id === monthId);
+    if (!month) {
+      addToast('Month not found.', 'error');
+      return;
     }
-    // Fallback: legacy records mapped to the oldest month
-    return oldestMonth && oldestMonth.id === selectedMonthId;
+    if (month.active) {
+      addToast('Cannot delete an active month. Stop it first.', 'error');
+      return;
+    }
+
+    const txCount = transactions.filter((t) => t.financialMonthId === monthId).length;
+    const debtCount = debts.filter((d) => d.financialMonthId === monthId).length;
+
+    const confirmed = window.confirm(
+      `Delete "${month.name}"?\n\nThis will permanently delete the month and also delete ${txCount} transaction(s) and ${debtCount} debt item(s) linked to it.`
+    );
+    if (!confirmed) return;
+
+    try {
+      setLoading(true);
+
+      const monthTxs = transactions.filter((t) => t.financialMonthId === monthId);
+      for (const tx of monthTxs) {
+        await dbConnector.deleteTransaction(tx.id);
+      }
+
+      const monthDebts = debts.filter((d) => d.financialMonthId === monthId);
+      for (const d of monthDebts) {
+        await dbConnector.deleteDebt(d.id);
+      }
+
+      await dbConnector.deleteFinancialMonth(monthId);
+
+      if (selectedMonthId === monthId) {
+        const next = financialMonths.find((m) => m.active && m.id !== monthId) || financialMonths.find((m) => m.id !== monthId);
+        setSelectedMonthId(next?.id || '');
+      }
+
+      addToast('Month deleted.', 'info');
+      await loadData();
+    } catch (err: any) {
+      console.error('Failed to delete month:', err);
+      addToast(err.message || 'Failed to delete month.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filter items by selected month
+  // If a record has no financialMonthId (legacy), infer it from the month date range.
+  const monthsByStartDesc = [...financialMonths].sort((a, b) => b.startDate.localeCompare(a.startDate));
+
+  const inferMonthIdFromDate = (dateStr: string): string | undefined => {
+    const match = monthsByStartDesc.find((m) => {
+      const startsOk = dateStr >= m.startDate;
+      const endsOk = !m.endDate || dateStr <= m.endDate;
+      return startsOk && endsOk;
+    });
+    return match?.id;
+  };
+
+  const filteredTransactions = transactions.filter((t) => {
+    const monthId = t.financialMonthId || inferMonthIdFromDate(t.date);
+    return !!selectedMonthId && monthId === selectedMonthId;
   });
 
-  const filteredDebts = debts.filter(d => {
-    if (d.financialMonthId) {
-      return d.financialMonthId === selectedMonthId;
-    }
-    // Fallback: legacy records mapped to the oldest month
-    return oldestMonth && oldestMonth.id === selectedMonthId;
+  const filteredDebts = debts.filter((d) => {
+    const monthId = d.financialMonthId || inferMonthIdFromDate(d.date);
+    return !!selectedMonthId && monthId === selectedMonthId;
   });
 
   // Auth and loading states
@@ -363,7 +467,7 @@ function App() {
                   className="input-control"
                   placeholder="e.g. March 2026"
                   value={newMonthName}
-                  onChange={(e) => setNewMonthName(e.target.value)}
+                  onChange={(e) => handleNewMonthNameChange(e.target.value)}
                   required
                 />
                 <span className="input-feedback">Name this cycle (e.g., March 2026).</span>
@@ -374,7 +478,7 @@ function App() {
                   type="date"
                   className="input-control"
                   value={newMonthStart}
-                  onChange={(e) => setNewMonthStart(e.target.value)}
+                  onChange={(e) => handleNewMonthStartChange(e.target.value)}
                   required
                 />
                 <span className="input-feedback">When did this cycle's transactions begin?</span>
@@ -492,6 +596,7 @@ function App() {
                   try {
                     setLoading(true);
                     await signOut();
+                    clearLocalUserData();
                     setUser(null);
                     setUserEmail('');
                     addToast('Signed out of Financial Flow.', 'info');
@@ -563,11 +668,14 @@ function App() {
             )}
 
             <button className="btn btn-secondary" onClick={() => loadData()} disabled={loading}>
-              {loading ? <LoadingSpinner size="sm" /> : 'Sync UI'}
+              {loading ? <LoadingSpinner size="sm" /> : 'Refresh'}
             </button>
             
             {activeTab === 'dashboard' && (
-              <button className="btn btn-primary" onClick={() => setActiveTab('transactions')}>
+              <button className="btn btn-primary" onClick={() => {
+                setActiveTab('transactions');
+                setShowNewEntryFromHome(true);
+              }}>
                 <Plus size={16} /> New Entry
               </button>
             )}
@@ -586,7 +694,14 @@ function App() {
                 <Dashboard transactions={filteredTransactions} debts={filteredDebts} />
               )}
               {activeTab === 'transactions' && (
-                <Transactions transactions={filteredTransactions} selectedMonthId={selectedMonthId} onNotify={addToast} onRefresh={loadData} />
+                <Transactions
+                  transactions={filteredTransactions}
+                  selectedMonthId={selectedMonthId}
+                  onNotify={addToast}
+                  onRefresh={loadData}
+                  openEntryForm={showNewEntryFromHome}
+                  onCloseEntryForm={() => setShowNewEntryFromHome(false)}
+                />
               )}
               {activeTab === 'debts' && (
                 <DebtsManager debts={filteredDebts} selectedMonthId={selectedMonthId} onNotify={addToast} onRefresh={loadData} />
@@ -618,10 +733,10 @@ function App() {
 
             {/* Active Cycle Status */}
             {financialMonths.find(m => m.active) ? (
-              <div className="card" style={{ marginBottom: '1.5rem', border: '1px solid rgba(16, 185, 129, 0.2)', backgroundColor: 'rgba(16, 185, 129, 0.03)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+              <div className="card cycle-active-card" style={{ marginBottom: '1.5rem', border: '1px solid rgba(16, 185, 129, 0.2)', backgroundColor: 'rgba(16, 185, 129, 0.03)' }}>
+                <div className="cycle-status-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                   <span className="month-badge active">Active Cycle</span>
-                  <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  <span className="cycle-started-text" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                     Started: {financialMonths.find(m => m.active)?.startDate}
                   </span>
                 </div>
@@ -649,7 +764,7 @@ function App() {
             )}
 
             {/* Start New Cycle Form */}
-            <form onSubmit={handleStartMonth} className="card" style={{ marginBottom: '1.5rem' }}>
+            <form onSubmit={handleStartMonth} className="card cycle-manager-form" style={{ marginBottom: '1.5rem' }}>
               <h3 style={{ fontSize: '1rem', marginBottom: '1rem' }}>Start New Financial Cycle</h3>
               {financialMonths.some(m => m.active) && (
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
@@ -663,7 +778,7 @@ function App() {
                   className="input-control"
                   placeholder="e.g. April 2026"
                   value={newMonthName}
-                  onChange={(e) => setNewMonthName(e.target.value)}
+                  onChange={(e) => handleNewMonthNameChange(e.target.value)}
                   required
                 />
               </div>
@@ -673,7 +788,7 @@ function App() {
                   type="date"
                   className="input-control"
                   value={newMonthStart}
-                  onChange={(e) => setNewMonthStart(e.target.value)}
+                  onChange={(e) => handleNewMonthStartChange(e.target.value)}
                   required
                 />
               </div>
@@ -687,16 +802,50 @@ function App() {
               <h4 style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>History</h4>
               <div className="month-history-list">
                 {financialMonths.map(m => (
-                  <div key={m.id} className="month-history-item">
+                  <div
+                    key={m.id}
+                    className="month-history-item"
+                    role="button"
+                    tabIndex={0}
+                    title="View this month"
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => {
+                      setSelectedMonthId(m.id);
+                      setShowMonthManager(false);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setSelectedMonthId(m.id);
+                        setShowMonthManager(false);
+                      }
+                    }}
+                  >
                     <div>
                       <div style={{ fontWeight: '600', fontSize: '0.9rem' }}>{m.name}</div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                         {m.startDate} {m.endDate ? `to ${m.endDate}` : '(active)'}
                       </div>
                     </div>
-                    <span className={`month-badge ${m.active ? 'active' : 'stopped'}`}>
-                      {m.active ? 'active' : 'stopped'}
-                    </span>
+
+                    <div className="month-history-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      {!m.active && (
+                        <button
+                          className="action-btn delete"
+                          title="Delete month"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteMonth(m.id);
+                          }}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+
+                      <span className={`month-badge ${m.active ? 'active' : 'stopped'}`}>
+                        {m.active ? 'active' : 'stopped'}
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>

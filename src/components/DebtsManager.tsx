@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import type { Debt, DebtType } from '../types';
 import { dbConnector } from '../dbConnector';
 import { evaluateExpression } from '../utils/math';
-import { Plus, CheckCircle, Trash2, Calendar, User, DollarSign, HelpCircle } from 'lucide-react';
+import { Plus, CheckCircle, Trash2, Calendar, User, DollarSign, HelpCircle, Pencil, X } from 'lucide-react';
 
 interface DebtsManagerProps {
   debts: Debt[];
@@ -20,6 +20,60 @@ export const DebtsManager: React.FC<DebtsManagerProps> = ({ debts, selectedMonth
   const [notes, setNotes] = useState('');
 
   const previewAmount = amountExpr ? evaluateExpression(amountExpr) : 0;
+
+  // Edit state
+  const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
+  const [editPerson, setEditPerson] = useState('');
+  const [editType, setEditType] = useState<DebtType>('RECEIVABLE');
+  const [editDate, setEditDate] = useState('');
+  const [editAmountExpr, setEditAmountExpr] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+  const editPreviewAmount = editAmountExpr ? evaluateExpression(editAmountExpr) : 0;
+
+  const openEdit = (d: Debt) => {
+    setEditingDebt(d);
+    setEditPerson(d.person);
+    setEditType(d.type);
+    setEditDate(d.date);
+    setEditAmountExpr(d.rawExpression || String(d.amount));
+    setEditNotes(d.notes || '');
+  };
+
+  const closeEdit = () => setEditingDebt(null);
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDebt) return;
+    if (!editPerson || !editAmountExpr) {
+      onNotify('Please fill in Name and Amount.', 'error');
+      return;
+    }
+
+    const finalAmount = evaluateExpression(editAmountExpr);
+    if (finalAmount <= 0) {
+      onNotify('Invalid amount expression.', 'error');
+      return;
+    }
+
+    try {
+      await dbConnector.updateDebt(editingDebt.id, {
+        date: editDate,
+        person: editPerson,
+        type: editType,
+        amount: finalAmount,
+        rawExpression: editAmountExpr,
+        notes: editNotes || undefined,
+        // Preserve month; if legacy record is missing a month, attach to the currently selected month.
+        financialMonthId: editingDebt.financialMonthId || selectedMonthId,
+      });
+
+      onNotify('Debt entry updated successfully!', 'success');
+      closeEdit();
+      onRefresh();
+    } catch (err) {
+      onNotify('Failed to update debt entry.', 'error');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,6 +178,9 @@ export const DebtsManager: React.FC<DebtsManagerProps> = ({ debts, selectedMonth
                     <div className="debt-amount-area">
                       <span className="debt-amount receivable">LKR {d.amount.toFixed(2)}</span>
                       <div style={{ display: 'flex', gap: '0.35rem' }}>
+                        <button className="action-btn" onClick={() => openEdit(d)} title="Edit">
+                          <Pencil size={16} />
+                        </button>
                         <button
                           className="action-btn"
                           style={{ color: d.settled ? 'var(--status-income)' : 'var(--text-muted)' }}
@@ -179,6 +236,9 @@ export const DebtsManager: React.FC<DebtsManagerProps> = ({ debts, selectedMonth
                     <div className="debt-amount-area">
                       <span className="debt-amount payable">LKR {d.amount.toFixed(2)}</span>
                       <div style={{ display: 'flex', gap: '0.35rem' }}>
+                        <button className="action-btn" onClick={() => openEdit(d)} title="Edit">
+                          <Pencil size={16} />
+                        </button>
                         <button
                           className="action-btn"
                           style={{ color: d.settled ? 'var(--status-income)' : 'var(--text-muted)' }}
@@ -213,7 +273,7 @@ export const DebtsManager: React.FC<DebtsManagerProps> = ({ debts, selectedMonth
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
             <button
               type="button"
-              className={`btn ${type === 'RECEIVABLE' ? 'btn-primary' : 'btn-secondary'}`}
+              className={`btn ${type === 'RECEIVABLE' ? 'btn-income' : 'btn-secondary'}`}
               style={{ flexGrow: 1, padding: '0.5rem', fontSize: '0.85rem' }}
               onClick={() => setType('RECEIVABLE')}
             >
@@ -221,7 +281,7 @@ export const DebtsManager: React.FC<DebtsManagerProps> = ({ debts, selectedMonth
             </button>
             <button
               type="button"
-              className={`btn ${type === 'PAYABLE' ? 'btn-primary' : 'btn-secondary'}`}
+              className={`btn ${type === 'PAYABLE' ? 'btn-expense' : 'btn-secondary'}`}
               style={{ flexGrow: 1, padding: '0.5rem', fontSize: '0.85rem' }}
               onClick={() => setType('PAYABLE')}
             >
@@ -251,7 +311,7 @@ export const DebtsManager: React.FC<DebtsManagerProps> = ({ debts, selectedMonth
             <input
               type="text"
               className="input-control"
-              placeholder="e.g. Loku Mama, T"
+              placeholder="e.g. Jhon"
               value={person}
               onChange={(e) => setPerson(e.target.value)}
               required
@@ -297,6 +357,101 @@ export const DebtsManager: React.FC<DebtsManagerProps> = ({ debts, selectedMonth
           </button>
         </form>
       </div>
+
+      {/* Edit Debt Modal */}
+      {editingDebt && (
+        <div className="modal-overlay" onClick={closeEdit}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Edit Debt Item</h2>
+              <button className="modal-close" onClick={closeEdit} aria-label="Close">
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdate}>
+              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+                <button
+                  type="button"
+                  className={`btn ${editType === 'RECEIVABLE' ? 'btn-income' : 'btn-secondary'}`}
+                  style={{ flexGrow: 1, padding: '0.5rem', fontSize: '0.85rem' }}
+                  onClick={() => setEditType('RECEIVABLE')}
+                >
+                  Receivable
+                </button>
+                <button
+                  type="button"
+                  className={`btn ${editType === 'PAYABLE' ? 'btn-expense' : 'btn-secondary'}`}
+                  style={{ flexGrow: 1, padding: '0.5rem', fontSize: '0.85rem' }}
+                  onClick={() => setEditType('PAYABLE')}
+                >
+                  Payable
+                </button>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">
+                  <Calendar size={12} style={{ marginRight: '0.35rem' }} /> Date
+                </label>
+                <input
+                  type="date"
+                  className="input-control"
+                  value={editDate}
+                  onChange={(e) => setEditDate(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">
+                  <User size={12} style={{ marginRight: '0.35rem' }} /> Person Name
+                </label>
+                <input
+                  type="text"
+                  className="input-control"
+                  value={editPerson}
+                  onChange={(e) => setEditPerson(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">
+                  <DollarSign size={12} style={{ marginRight: '0.35rem' }} /> Amount / Expression
+                </label>
+                <input
+                  type="text"
+                  className="input-control"
+                  value={editAmountExpr}
+                  onChange={(e) => setEditAmountExpr(e.target.value)}
+                  required
+                />
+                {editAmountExpr && (
+                  <span className={`input-feedback ${editPreviewAmount > 0 ? 'success' : 'error'}`}>
+                    {editPreviewAmount > 0 ? `Calculated: LKR ${editPreviewAmount.toFixed(2)}` : 'Invalid math expression'}
+                  </span>
+                )}
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                <label className="form-label">
+                  <HelpCircle size={12} style={{ marginRight: '0.35rem' }} /> Notes
+                </label>
+                <textarea
+                  className="input-control"
+                  style={{ height: '80px', resize: 'none' }}
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                />
+              </div>
+
+              <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
+                Save Changes
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

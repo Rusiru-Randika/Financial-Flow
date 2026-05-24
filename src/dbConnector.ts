@@ -18,6 +18,12 @@ export function setDBMode(_mode: DBMode) {
   window.dispatchEvent(new Event('db-mode-changed'));
 }
 
+export function clearLocalUserData() {
+  localStorage.removeItem(KEY_MONTHS);
+  localStorage.removeItem(KEY_TRANSACTIONS);
+  localStorage.removeItem(KEY_DEBTS);
+}
+
 // Generate the Amplify client dynamically
 let clientInstance: any = null;
 function getAmplifyClient() {
@@ -156,6 +162,27 @@ export const dbConnector = {
     months[idx] = updatedMonth;
     localDB.saveFinancialMonths(months);
     return updatedMonth;
+  },
+
+  async deleteFinancialMonth(id: string): Promise<void> {
+    if (getDBMode() === 'amplify') {
+      try {
+        const client = getAmplifyClient();
+        if (!client) throw new Error('Amplify API client not initialized.');
+
+        const response = await client.models.FinancialMonth.delete({ id });
+        if (response.errors) {
+          throw new Error(response.errors.map((e: any) => e.message).join(', '));
+        }
+        return;
+      } catch (err) {
+        console.error('Amplify deleteFinancialMonth failed:', err);
+        throw err;
+      }
+    }
+
+    const months = localDB.getFinancialMonths();
+    localDB.saveFinancialMonths(months.filter((m) => m.id !== id));
   },
 
   // --- TRANSACTIONS API ---
