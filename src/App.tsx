@@ -6,7 +6,7 @@ import { Transactions } from './components/Transactions';
 import { DebtsManager } from './components/DebtsManager';
 import { AmplifyConnector } from './components/AmplifyConnector';
 import { AuthGate } from './components/AuthGate';
-import { getCurrentUser, signOut } from 'aws-amplify/auth';
+import { getCurrentUser, signOut, fetchUserAttributes } from 'aws-amplify/auth';
 import { 
   TrendingUp, 
   List, 
@@ -42,6 +42,7 @@ function App() {
 
   // AWS Amplify Authentication States
   const [user, setUser] = useState<any>(null);
+  const [userEmail, setUserEmail] = useState<string>('');
   const [isAmplifyConfigured, setIsAmplifyConfigured] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
 
@@ -138,8 +139,24 @@ function App() {
         if (config && config.auth && config.auth.user_pool_id) {
           setIsAmplifyConfigured(true);
           
+          // Auto-enable Amplify mode on first boot if Amplify is configured
+          if (!localStorage.getItem('budget_tracker_db_mode')) {
+            setDBMode('amplify');
+          }
+
           const currentUser = await getCurrentUser();
           setUser(currentUser);
+          
+          try {
+            const attrs = await fetchUserAttributes();
+            if (attrs.email) {
+              setUserEmail(attrs.email);
+            } else {
+              setUserEmail(currentUser.signInDetails?.loginId || currentUser.username);
+            }
+          } catch (attrsErr) {
+            setUserEmail(currentUser.signInDetails?.loginId || currentUser.username);
+          }
         } else {
           setIsAmplifyConfigured(false);
         }
@@ -257,9 +274,19 @@ function App() {
     return (
       <div className="app-container">
         <AuthGate 
-          onSuccess={(currentUser) => {
+          onSuccess={async (currentUser) => {
             setUser(currentUser);
             setDBMode('amplify');
+            try {
+              const attrs = await fetchUserAttributes();
+              if (attrs.email) {
+                setUserEmail(attrs.email);
+              } else {
+                setUserEmail(currentUser.signInDetails?.loginId || currentUser.username);
+              }
+            } catch (e) {
+              setUserEmail(currentUser.signInDetails?.loginId || currentUser.username);
+            }
           }}
           onCancel={() => {
             setDBMode('local');
@@ -389,8 +416,8 @@ function App() {
                   whiteSpace: 'nowrap',
                   color: 'var(--text-primary)',
                   fontWeight: 500
-                }} title={user.signInDetails?.loginId || user.username}>
-                  {user.signInDetails?.loginId || user.username}
+                }} title={userEmail}>
+                  {userEmail}
                 </span>
               </div>
               <button 
@@ -408,6 +435,7 @@ function App() {
                     setLoading(true);
                     await signOut();
                     setUser(null);
+                    setUserEmail('');
                     setDBMode('local');
                     addToast('Signed out of AWS Cloud Sync.', 'info');
                   } catch (err: any) {
