@@ -5,16 +5,17 @@ import { Dashboard } from './components/Dashboard';
 import { Transactions } from './components/Transactions';
 import { DebtsManager } from './components/DebtsManager';
 import { AuthGate } from './components/AuthGate';
+import { LoadingSpinner } from './components/LoadingSpinner';
 import { getCurrentUser, signOut, fetchUserAttributes } from 'aws-amplify/auth';
 import { 
   TrendingUp, 
   List, 
   Coins, 
   Plus, 
-  Loader, 
   Sparkles,
   Calendar,
   X,
+  Menu,
   Play,
   Square,
   LogOut,
@@ -203,8 +204,9 @@ function App() {
       setShowMonthManager(false);
       setSelectedMonthId(created.id);
       await loadData();
-    } catch (err) {
-      addToast('Failed to start new financial month.', 'error');
+    } catch (err: any) {
+      console.error('Failed to start financial month:', err);
+      addToast(`Failed to start financial month: ${err.message || 'Unknown error'}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -225,8 +227,9 @@ function App() {
 
       addToast('Financial month stopped successfully.', 'info');
       await loadData();
-    } catch (err) {
-      addToast('Failed to stop financial month.', 'error');
+    } catch (err: any) {
+      console.error('Failed to stop financial month:', err);
+      addToast(`Failed to stop financial month: ${err.message || 'Unknown error'}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -254,9 +257,8 @@ function App() {
   // Auth and loading states
   if (authLoading) {
     return (
-      <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', flexDirection: 'column', gap: '1rem', color: 'var(--text-secondary)' }}>
-        <Loader className="animate-spin" size={40} style={{ color: 'var(--accent-primary)' }} />
-        <p>Loading application state...</p>
+      <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', flexDirection: 'column', gap: '1rem' }}>
+        <LoadingSpinner size="lg" label="Loading Financial Flow..." />
       </div>
     );
   }
@@ -389,6 +391,28 @@ function App() {
 
   return (
     <div className="app-container">
+      {/* Mobile Top Header */}
+      <div className="mobile-top-bar">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div className="logo-icon" style={{ width: '32px', height: '32px' }}>
+            <Sparkles size={16} fill="white" />
+          </div>
+          <span className="logo-text" style={{ fontSize: '1.15rem' }}>Financial Flow</span>
+        </div>
+        <button 
+          className="mobile-toggle"
+          onClick={() => setMobileMenuOpen(prev => !prev)}
+          title="Toggle Menu"
+        >
+          {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
+      </div>
+
+      {/* Sidebar Overlay */}
+      {mobileMenuOpen && (
+        <div className="sidebar-overlay" onClick={() => setMobileMenuOpen(false)} />
+      )}
+
       {/* Sidebar Navigation */}
       <aside className={`sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}>
         <div className="logo-container">
@@ -539,7 +563,7 @@ function App() {
             )}
 
             <button className="btn btn-secondary" onClick={() => loadData()} disabled={loading}>
-              {loading ? <Loader className="animate-spin" size={14} /> : 'Sync UI'}
+              {loading ? <LoadingSpinner size="sm" /> : 'Sync UI'}
             </button>
             
             {activeTab === 'dashboard' && (
@@ -551,24 +575,25 @@ function App() {
         </header>
 
         {/* Dynamic page switcher */}
-        {loading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px', flexDirection: 'column', gap: '1rem', color: 'var(--text-secondary)' }}>
-            <Loader className="animate-spin" size={40} style={{ color: 'var(--accent-primary)' }} />
-            <p>Loading database entries...</p>
-          </div>
-        ) : (
-          <>
-            {activeTab === 'dashboard' && (
-              <Dashboard transactions={filteredTransactions} debts={filteredDebts} />
-            )}
-            {activeTab === 'transactions' && (
-              <Transactions transactions={filteredTransactions} selectedMonthId={selectedMonthId} onNotify={addToast} onRefresh={loadData} />
-            )}
-            {activeTab === 'debts' && (
-              <DebtsManager debts={filteredDebts} selectedMonthId={selectedMonthId} onNotify={addToast} onRefresh={loadData} />
-            )}
-          </>
-        )}
+        <div className="view-container">
+          {loading ? (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', flexDirection: 'column', gap: '1.5rem' }}>
+              <LoadingSpinner size="lg" label="Loading database entries..." />
+            </div>
+          ) : (
+            <>
+              {activeTab === 'dashboard' && (
+                <Dashboard transactions={filteredTransactions} debts={filteredDebts} />
+              )}
+              {activeTab === 'transactions' && (
+                <Transactions transactions={filteredTransactions} selectedMonthId={selectedMonthId} onNotify={addToast} onRefresh={loadData} />
+              )}
+              {activeTab === 'debts' && (
+                <DebtsManager debts={filteredDebts} selectedMonthId={selectedMonthId} onNotify={addToast} onRefresh={loadData} />
+              )}
+            </>
+          )}
+        </div>
       </main>
 
       {/* Toast Alert Container */}

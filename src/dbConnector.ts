@@ -110,7 +110,8 @@ export const dbConnector = {
         const client = getAmplifyClient();
         if (!client) throw new Error('Amplify API client not initialized.');
 
-        const response = await client.models.FinancialMonth.create(newMonth);
+        const { createdAt, ...input } = newMonth;
+        const response = await client.models.FinancialMonth.create(input);
         if (response.errors) {
           throw new Error(response.errors.map((e: any) => e.message).join(', '));
         }
@@ -207,7 +208,8 @@ export const dbConnector = {
         const client = getAmplifyClient();
         if (!client) throw new Error('Amplify API client not initialized.');
 
-        const response = await client.models.Expense.create(newTx);
+        const { createdAt, ...input } = newTx;
+        const response = await client.models.Expense.create(input);
         if (response.errors) {
           throw new Error(response.errors.map((e: any) => e.message).join(', '));
         }
@@ -324,7 +326,8 @@ export const dbConnector = {
         const client = getAmplifyClient();
         if (!client) throw new Error('Amplify API client not initialized.');
 
-        const response = await client.models.Debt.create(newDebt);
+        const { createdAt, ...input } = newDebt;
+        const response = await client.models.Debt.create(input);
         if (response.errors) {
           throw new Error(response.errors.map((e: any) => e.message).join(', '));
         }

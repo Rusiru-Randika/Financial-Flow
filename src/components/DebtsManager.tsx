@@ -83,10 +83,10 @@ export const DebtsManager: React.FC<DebtsManagerProps> = ({ debts, selectedMonth
   const payables = debts.filter(d => d.type === 'PAYABLE');
 
   return (
-    <div className="content-grid">
+    <div className="content-grid" style={{ height: '100%', alignItems: 'stretch' }}>
       {/* Left Columns: Split Receivables and Payables Lists */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-        <div className="debts-grid">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', minHeight: 0, overflow: 'hidden' }}>
+        <div className="debts-grid" style={{ flex: '1 1 0', minHeight: 0 }}>
           
           {/* RECEIVABLES */}
           <div className="card">

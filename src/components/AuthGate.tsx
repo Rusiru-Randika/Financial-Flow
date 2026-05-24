@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { LogIn, UserPlus, CheckCircle, Loader, KeyRound, Sparkles, AlertCircle } from 'lucide-react';
+import { LogIn, UserPlus, CheckCircle, KeyRound, Sparkles, AlertCircle } from 'lucide-react';
+import { LoadingSpinner } from './LoadingSpinner';
 import { signIn, signUp, confirmSignUp, getCurrentUser } from 'aws-amplify/auth';
 
 interface AuthGateProps {
@@ -113,13 +114,13 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onSuccess, onNotify }) => {
             {authStep === 'confirm' ? <KeyRound size={26} fill="white" /> : <Sparkles size={26} fill="white" />}
           </div>
           <h2 className="wizard-title" style={{ fontSize: '1.75rem', marginBottom: '0.5rem', background: 'linear-gradient(to right, #ffffff, #e2e8f0)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            {authStep === 'signin' && 'Sign In to Cloud'}
-            {authStep === 'signup' && 'Create Cloud Account'}
+            {authStep === 'signin' && 'Sign In to Financial Flow'}
+            {authStep === 'signup' && 'Create Financial Flow Account'}
             {authStep === 'confirm' && 'Verify Email Address'}
           </h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-            {authStep === 'signin' && 'Access your expenses securely from the AWS cloud.'}
-            {authStep === 'signup' && 'Register your email for cloud-synced storage.'}
+            {authStep === 'signin' && 'Access your ledger securely from the AWS cloud.'}
+            {authStep === 'signup' && 'Register your email for cloud-synced Financial Flow account.'}
             {authStep === 'confirm' && `Enter the verification code sent to ${email}`}
           </p>
         </div>
@@ -166,8 +167,8 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onSuccess, onNotify }) => {
                 required
               />
             </div>
-            <button className="btn btn-primary" style={{ width: '100%', marginBottom: '1.25rem' }} disabled={loading}>
-              {loading ? <Loader className="animate-spin" size={18} /> : <LogIn size={18} />}
+            <button className="btn btn-primary" style={{ width: '100%', marginBottom: '1.25rem', padding: '0.65rem' }} disabled={loading}>
+              {loading ? <LoadingSpinner size="sm" /> : <LogIn size={16} />}
               {loading ? 'Authenticating...' : 'Sign In'}
             </button>
             
@@ -210,8 +211,8 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onSuccess, onNotify }) => {
                 required
               />
             </div>
-            <button className="btn btn-primary" style={{ width: '100%', marginBottom: '1.25rem' }} disabled={loading}>
-              {loading ? <Loader className="animate-spin" size={18} /> : <UserPlus size={18} />}
+            <button className="btn btn-primary" style={{ width: '100%', marginBottom: '1.25rem', padding: '0.65rem' }} disabled={loading}>
+              {loading ? <LoadingSpinner size="sm" /> : <UserPlus size={16} />}
               {loading ? 'Creating Account...' : 'Register'}
             </button>
             
@@ -244,8 +245,8 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onSuccess, onNotify }) => {
               />
               <span className="input-feedback">We sent a verification code to your email inbox.</span>
             </div>
-            <button className="btn btn-primary" style={{ width: '100%', marginBottom: '1.25rem' }} disabled={loading}>
-              {loading ? <Loader className="animate-spin" size={18} /> : <CheckCircle size={18} />}
+            <button className="btn btn-primary" style={{ width: '100%', marginBottom: '1.25rem', padding: '0.65rem' }} disabled={loading}>
+              {loading ? <LoadingSpinner size="sm" /> : <CheckCircle size={16} />}
               {loading ? 'Verifying...' : 'Confirm & Sign In'}
             </button>
             

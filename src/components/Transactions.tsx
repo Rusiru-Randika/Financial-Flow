@@ -88,9 +88,9 @@ export const Transactions: React.FC<TransactionsProps> = ({ transactions, select
   });
 
   return (
-    <div className="content-grid">
+    <div className="content-grid" style={{ height: '100%', alignItems: 'stretch' }}>
       {/* Left: Transaction Table */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', minHeight: 0, overflow: 'hidden' }}>
         <div className="card">
           <h3 className="chart-title" style={{ marginBottom: '1.5rem' }}>Filters</h3>
           
@@ -171,15 +171,14 @@ export const Transactions: React.FC<TransactionsProps> = ({ transactions, select
         </div>
 
         {/* Transactions Table Grid */}
-        <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+        <div className="card" style={{ flex: '1 1 0', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
             <h3 className="chart-title">Transactions List</h3>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              Showing {filteredTransactions.length} records
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+              {filteredTransactions.length} records
             </span>
           </div>
-
-          <div style={{ overflowX: 'auto' }}>
+          <div style={{ overflowX: 'auto', overflowY: 'auto', flex: 1 }}>
             {filteredTransactions.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
                 <Info size={32} style={{ marginBottom: '0.5rem', opacity: 0.5 }} />
