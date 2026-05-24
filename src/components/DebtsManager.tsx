@@ -137,9 +137,9 @@ export const DebtsManager: React.FC<DebtsManagerProps> = ({ debts, selectedMonth
   const payables = debts.filter(d => d.type === 'PAYABLE');
 
   return (
-    <div className="content-grid" style={{ height: '100%', alignItems: 'stretch' }}>
+    <div className="content-grid debts-content-grid" style={{ height: '100%', alignItems: 'stretch' }}>
       {/* Left Columns: Split Receivables and Payables Lists */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', minHeight: 0, overflow: 'hidden' }}>
+      <div className="debts-list-column" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', minHeight: 0, overflow: 'hidden' }}>
         <div className="debts-grid" style={{ flex: '1 1 0', minHeight: 0 }}>
           
           {/* RECEIVABLES */}
@@ -262,7 +262,7 @@ export const DebtsManager: React.FC<DebtsManagerProps> = ({ debts, selectedMonth
       </div>
 
       {/* Right Column: Add Debt Form */}
-      <div className="card" style={{ position: 'sticky', top: '1.5rem' }}>
+      <div className="card debt-form-card" style={{ position: 'sticky', top: '1.5rem' }}>
         <h3 className="chart-title" style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <Plus size={18} style={{ color: 'var(--accent-primary)' }} />
           Log Debt Item

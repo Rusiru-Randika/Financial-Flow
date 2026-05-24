@@ -1502,6 +1502,28 @@ button, input, select, textarea {
     grid-template-columns: 1fr;
   }
 
+  .debts-content-grid {
+    height: auto !important;
+    align-items: start !important;
+  }
+
+  .debts-list-column {
+    min-height: auto !important;
+    overflow: visible !important;
+    order: 2;
+  }
+
+  .debts-list-column .debts-grid {
+    flex: 0 0 auto !important;
+    min-height: auto !important;
+    margin-bottom: 0;
+  }
+
+  .debt-form-card {
+    position: static !important;
+    order: 1;
+  }
+
   .dashboard-left-grid {
     grid-template-columns: 1fr;
   }
@@ -1560,6 +1582,32 @@ button, input, select, textarea {
 
   .btn {
     width: 100%;
+  }
+
+  .toast-container {
+    left: 0.75rem;
+    right: 0.75rem;
+    bottom: 0.85rem;
+    align-items: center;
+  }
+
+  .toast {
+    width: min(100%, 300px);
+    min-width: 0;
+    padding: 0.65rem 0.8rem;
+    border-radius: 7px;
+    font-size: 0.78rem;
+    line-height: 1.35;
+  }
+
+  .toast span {
+    overflow-wrap: anywhere;
+  }
+
+  .toast.success,
+  .toast.error,
+  .toast.info {
+    border-left-width: 3px;
   }
 
   .modal-content {
@@ -1632,6 +1680,26 @@ button, input, select, textarea {
 
   .month-history-actions {
     flex-shrink: 0;
+  }
+
+  .debt-item {
+    align-items: flex-start;
+    gap: 0.7rem;
+  }
+
+  .debt-details {
+    min-width: 0;
+  }
+
+  .debt-amount-area {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.45rem;
+  }
+
+  .debt-amount {
+    font-size: 1rem;
+    white-space: nowrap;
   }
 
   .filters-bar {
