@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { LogIn, UserPlus, CheckCircle, KeyRound, Sparkles, AlertCircle } from 'lucide-react';
 import { LoadingSpinner } from './LoadingSpinner';
-import { signIn, signUp, confirmSignUp, getCurrentUser } from 'aws-amplify/auth';
+import { signIn, signUp, confirmSignUp, getCurrentUser, resetPassword, confirmResetPassword } from 'aws-amplify/auth';
 
 interface AuthGateProps {
   onSuccess: (user: any) => void;
@@ -9,10 +9,12 @@ interface AuthGateProps {
 }
 
 export const AuthGate: React.FC<AuthGateProps> = ({ onSuccess, onNotify }) => {
-  const [authStep, setAuthStep] = useState<'signin' | 'signup' | 'confirm'>('signin');
+  const [authStep, setAuthStep] = useState<'signin' | 'signup' | 'confirm' | 'forgot' | 'reset'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmCode, setConfirmCode] = useState('');
+  const [resetCode, setResetCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -99,6 +101,48 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onSuccess, onNotify }) => {
     }
   };
 
+  const handleSendResetCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+    setLoading(true);
+    setErrorMsg(null);
+    try {
+      await resetPassword({ username: email });
+      setAuthStep('reset');
+      onNotify('Password reset code sent to your email.', 'success');
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to send reset code.');
+      onNotify(err.message || 'Failed to send reset code.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirmReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !resetCode || !newPassword) return;
+    if (newPassword.length < 8) {
+      setErrorMsg('Password must be at least 8 characters long.');
+      return;
+    }
+
+    setLoading(true);
+    setErrorMsg(null);
+    try {
+      await confirmResetPassword({ username: email, confirmationCode: resetCode, newPassword });
+      onNotify('Password updated. Please sign in with your new password.', 'success');
+      setPassword('');
+      setNewPassword('');
+      setResetCode('');
+      setAuthStep('signin');
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to reset password.');
+      onNotify(err.message || 'Failed to reset password.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div style={{
       display: 'flex',
@@ -111,17 +155,25 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onSuccess, onNotify }) => {
       <div className="card" style={{ maxWidth: '460px', width: '100%', padding: '2.5rem' }}>
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div className="logo-icon" style={{ margin: '0 auto 1.5rem', width: '52px', height: '52px' }}>
-            {authStep === 'confirm' ? <KeyRound size={26} fill="white" /> : <Sparkles size={26} fill="white" />}
+            {authStep === 'confirm' || authStep === 'forgot' || authStep === 'reset' ? (
+              <KeyRound size={26} fill="white" />
+            ) : (
+              <Sparkles size={26} fill="white" />
+            )}
           </div>
           <h2 className="wizard-title" style={{ fontSize: '1.75rem', marginBottom: '0.5rem', background: 'linear-gradient(to right, #ffffff, #e2e8f0)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             {authStep === 'signin' && 'Sign In to Financial Flow'}
             {authStep === 'signup' && 'Create Financial Flow Account'}
             {authStep === 'confirm' && 'Verify Email Address'}
+            {authStep === 'forgot' && 'Reset Password'}
+            {authStep === 'reset' && 'Set New Password'}
           </h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
             {authStep === 'signin' && 'Access your ledger securely from the AWS cloud.'}
             {authStep === 'signup' && 'Register your email for cloud-synced Financial Flow account.'}
             {authStep === 'confirm' && `Enter the verification code sent to ${email}`}
+            {authStep === 'forgot' && 'Enter your email to receive a password reset code.'}
+            {authStep === 'reset' && `Enter the code sent to ${email} and choose a new password.`}
           </p>
         </div>
 
@@ -166,6 +218,20 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onSuccess, onNotify }) => {
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthStep('forgot');
+                    setErrorMsg(null);
+                    setResetCode('');
+                    setNewPassword('');
+                  }}
+                  style={{ background: 'none', border: 'none', color: 'var(--accent-teal)', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}
+                >
+                  Forgot password?
+                </button>
+              </div>
             </div>
             <button className="btn btn-primary" style={{ width: '100%', marginBottom: '1.25rem', padding: '0.65rem' }} disabled={loading}>
               {loading ? <LoadingSpinner size="sm" /> : <LogIn size={16} />}
@@ -183,6 +249,86 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onSuccess, onNotify }) => {
                   Register
                 </button>
               </div>
+            </div>
+          </form>
+        )}
+
+        {authStep === 'forgot' && (
+          <form onSubmit={handleSendResetCode}>
+            <div className="form-group">
+              <label className="form-label">Email Address</label>
+              <input
+                type="email"
+                className="input-control"
+                placeholder="name@domain.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+
+            <button className="btn btn-primary" style={{ width: '100%', marginBottom: '1.25rem', padding: '0.65rem' }} disabled={loading}>
+              {loading ? <LoadingSpinner size="sm" /> : <KeyRound size={16} />}
+              {loading ? 'Sending...' : 'Send Reset Code'}
+            </button>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center', fontSize: '0.85rem' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthStep('signin');
+                  setErrorMsg(null);
+                }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
+              >
+                Back to Sign In
+              </button>
+            </div>
+          </form>
+        )}
+
+        {authStep === 'reset' && (
+          <form onSubmit={handleConfirmReset}>
+            <div className="form-group">
+              <label className="form-label">Reset Code</label>
+              <input
+                type="text"
+                className="input-control"
+                placeholder="123456"
+                value={resetCode}
+                onChange={(e) => setResetCode(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+              <label className="form-label">New Password</label>
+              <input
+                type="password"
+                className="input-control"
+                placeholder="At least 8 characters"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+              />
+            </div>
+
+            <button className="btn btn-primary" style={{ width: '100%', marginBottom: '1.25rem', padding: '0.65rem' }} disabled={loading}>
+              {loading ? <LoadingSpinner size="sm" /> : <CheckCircle size={16} />}
+              {loading ? 'Updating...' : 'Update Password'}
+            </button>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', alignItems: 'center', fontSize: '0.85rem' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthStep('forgot');
+                  setErrorMsg(null);
+                }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
+              >
+                Back
+              </button>
             </div>
           </form>
         )}
