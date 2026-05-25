@@ -20,6 +20,11 @@ dist-ssr
 amplify_outputs.json
 public/amplify_outputs.json
 
+# Amplify local state (generated)
+.amplify/
+.amplify-hosting/
+cdk.out/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

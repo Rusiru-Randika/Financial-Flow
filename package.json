@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "amplify:backend": "npx ampx sandbox",
+    "amplify:link": "powershell -NoProfile -Command \"if (!(Test-Path amplify_outputs.json)) { Write-Error 'amplify_outputs.json not found. Run npm run amplify:backend first.'; exit 1 }; $o = (Get-Content amplify_outputs.json -Raw | ConvertFrom-Json); if ($null -eq $o.auth -or [string]::IsNullOrWhiteSpace($o.auth.user_pool_id)) { Write-Error 'amplify_outputs.json is missing auth.user_pool_id. Backend deploy likely failed. Fix AWS permissions and re-run npm run amplify:backend.'; exit 1 }; New-Item -ItemType Directory -Force -Path public | Out-Null; Copy-Item amplify_outputs.json public\\amplify_outputs.json -Force; Write-Output 'Copied amplify_outputs.json to public/amplify_outputs.json'\"",
     "generate:icons": "node scripts/generate-pwa-icons.mjs",
     "prebuild": "npm run generate:icons",
     "build": "tsc -b && vite build",
