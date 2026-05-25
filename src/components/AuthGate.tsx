@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { LogIn, UserPlus, CheckCircle, KeyRound, Sparkles, AlertCircle } from 'lucide-react';
 import { LoadingSpinner } from './LoadingSpinner';
-import { signIn, signUp, confirmSignUp, getCurrentUser, resetPassword, confirmResetPassword } from 'aws-amplify/auth';
+import { signIn, signUp, confirmSignUp, getCurrentUser, resetPassword, confirmResetPassword, signOut } from 'aws-amplify/auth';
 
 interface AuthGateProps {
   onSuccess: (user: any) => void;
@@ -130,7 +130,23 @@ export const AuthGate: React.FC<AuthGateProps> = ({ onSuccess, onNotify }) => {
     setErrorMsg(null);
     try {
       await confirmResetPassword({ username: email, confirmationCode: resetCode, newPassword });
-      onNotify('Password updated. Please sign in with your new password.', 'success');
+
+      // Optional security hardening: invalidate sessions on other devices.
+      // Cognito can't do a global sign-out unless the user is currently signed in,
+      // so we sign in once with the new password and then perform a global sign-out.
+      try {
+        const result = await signIn({ username: email, password: newPassword });
+        if (result.isSignedIn) {
+          await signOut({ global: true });
+          onNotify('Password updated. Signed out on all devices. Please sign in again.', 'success');
+        } else {
+          onNotify('Password updated. Please sign in with your new password.', 'success');
+        }
+      } catch {
+        // If sign-in/global sign-out fails (network/policy), still allow the reset to complete.
+        onNotify('Password updated. Please sign in with your new password.', 'success');
+      }
+
       setPassword('');
       setNewPassword('');
       setResetCode('');

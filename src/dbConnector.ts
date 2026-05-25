@@ -345,14 +345,14 @@ export const dbConnector = {
           notes: item.notes || '',
           financialMonthId: item.financialMonthId || undefined,
           createdAt: item.createdAt,
-        })).sort((a: any, b: any) => b.date.localeCompare(a.date));
+        })).sort(compareByRecency);
       } catch (err) {
         console.error('Amplify fetchDebts failed, falling back to local:', err);
         throw err;
       }
     }
 
-    return localDB.getDebts().sort((a, b) => b.date.localeCompare(a.date));
+    return localDB.getDebts().sort(compareByRecency);
   },
 
   async createDebt(debt: Omit<Debt, 'id'>): Promise<Debt> {
@@ -372,7 +372,12 @@ export const dbConnector = {
         if (response.errors) {
           throw new Error(response.errors.map((e: any) => e.message).join(', '));
         }
-        return response.data as unknown as Debt;
+        const created = response.data as unknown as Debt;
+        return {
+          ...newDebt,
+          ...created,
+          createdAt: created?.createdAt || newDebt.createdAt,
+        };
       } catch (err) {
         console.error('Amplify createDebt failed:', err);
         throw err;

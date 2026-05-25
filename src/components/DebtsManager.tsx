@@ -1,8 +1,17 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import type { Debt, DebtType } from '../types';
 import { dbConnector } from '../dbConnector';
 import { evaluateExpression } from '../utils/math';
 import { Plus, CheckCircle, Trash2, Calendar, User, DollarSign, HelpCircle, Pencil, X } from 'lucide-react';
+
+// Prefer createdAt (time) when available; fallback to date-only.
+// ISO timestamps are lexicographically sortable.
+const compareByRecency = (a: { createdAt?: string; date: string }, b: { createdAt?: string; date: string }) => {
+  const aKey = a.createdAt || `${a.date}T00:00:00.000Z`;
+  const bKey = b.createdAt || `${b.date}T00:00:00.000Z`;
+  if (aKey !== bKey) return bKey.localeCompare(aKey);
+  return b.date.localeCompare(a.date);
+};
 
 interface DebtsManagerProps {
   debts: Debt[];
@@ -133,8 +142,14 @@ export const DebtsManager: React.FC<DebtsManagerProps> = ({ debts, selectedMonth
     }
   };
 
-  const receivables = debts.filter(d => d.type === 'RECEIVABLE');
-  const payables = debts.filter(d => d.type === 'PAYABLE');
+  const receivables = useMemo(
+    () => debts.filter(d => d.type === 'RECEIVABLE').slice().sort(compareByRecency),
+    [debts]
+  );
+  const payables = useMemo(
+    () => debts.filter(d => d.type === 'PAYABLE').slice().sort(compareByRecency),
+    [debts]
+  );
 
   return (
     <div className="content-grid debts-content-grid" style={{ height: '100%', alignItems: 'stretch' }}>
