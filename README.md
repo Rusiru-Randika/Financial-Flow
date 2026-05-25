@@ -105,9 +105,25 @@ npx ampx sandbox
 
 This will provision backend resources in your AWS account and generate/update `amplify_outputs.json`.
 
+For local development, copy the generated outputs file into `public/` so the app can load it at runtime:
+
+```bash
+# macOS/Linux
+cp amplify_outputs.json public/amplify_outputs.json
+```
+
+On Windows (PowerShell):
+
+```powershell
+Copy-Item amplify_outputs.json public\amplify_outputs.json
+```
+
 ### 🔎 How the app detects Amplify
 
-On startup, the app attempts to load `amplify_outputs.json`. If it contains a valid auth configuration, Amplify is configured (see `src/main.tsx`).
+On startup, the app attempts to fetch `public/amplify_outputs.json` (served at `/amplify_outputs.json`).
+
+- If the file exists and contains a valid auth configuration, Amplify is configured (see `src/main.tsx`).
+- If the file is missing, the app runs in Local Storage Mode.
 
 If Amplify is not configured, the UI shows instructions for connecting a backend.
 
@@ -144,7 +160,8 @@ If you change the logo and iOS still shows the old icon:
 ## 🔐 Security Notes
 
 - Do **not** commit real secrets (AWS access keys, tokens, `.env` files).
-- `amplify_outputs.json` contains identifiers/endpoints (Cognito IDs and GraphQL URL). Treat it as configuration; it is not an AWS secret key.
+- `amplify_outputs.json` contains identifiers/endpoints (Cognito IDs and GraphQL URL). Treat it as environment-specific configuration; it is not an AWS secret key.
+- This repo intentionally does **not** commit `amplify_outputs.json` or `public/amplify_outputs.json`.
 - The Amplify Console “Data” table is an admin view; values stored in DynamoDB will be visible there to anyone with AWS console access.
 
 ## 🛠️ Troubleshooting
@@ -155,7 +172,7 @@ The app uses a strict Content Security Policy (CSP) which blocks `eval`/`Functio
 
 ### Amplify configured but app can’t sign in
 
-- Confirm `amplify_outputs.json` is present and matches your deployed environment
+- Confirm `public/amplify_outputs.json` is present and matches your deployed environment
 - Ensure the backend is deployed and Cognito User Pool exists
 
 ### iOS “Add to Home Screen” shows no logo

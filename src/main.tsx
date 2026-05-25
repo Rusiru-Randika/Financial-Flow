@@ -2,16 +2,15 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
+import { loadAmplifyOutputs } from './amplifyOutputs';
 
 // Initialize AWS Amplify conditionally based on config presence
 const bootstrap = async () => {
   try {
-    // Dynamic import to prevent compiler crashes on local mode runs
-    const mod = (await import('../amplify_outputs.json')) as any;
-    const outputs = (mod && typeof mod === 'object' && 'default' in mod) ? mod.default : mod;
-    
+    const outputs = await loadAmplifyOutputs();
+
     // Check if configuration matches a valid deployment
-    if (outputs && outputs.auth && outputs.auth.user_pool_id) {
+    if (outputs) {
       const { Amplify } = await import('aws-amplify');
       Amplify.configure(outputs);
       console.log('AWS Amplify initialized successfully.');

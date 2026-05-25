@@ -136,7 +136,7 @@ export const AmplifyConnector: React.FC<AmplifyConnectorProps> = ({
               <div className="step-content">
                 <p style={{ fontWeight: 600, marginBottom: '0.25rem' }}>Automatic Connection</p>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                  Once the backend deploy completes, it will automatically populate <code>amplify_outputs.json</code>. Simply reload the page to log in!
+                  Once the backend deploy completes, copy <code>amplify_outputs.json</code> to <code>public/amplify_outputs.json</code>, then reload the page to log in.
                 </p>
               </div>
             </div>

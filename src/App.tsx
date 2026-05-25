@@ -7,6 +7,7 @@ import { DebtsManager } from './components/DebtsManager';
 import { AuthGate } from './components/AuthGate';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { getCurrentUser, signOut, fetchUserAttributes } from 'aws-amplify/auth';
+import { loadAmplifyOutputs } from './amplifyOutputs';
 import { 
   TrendingUp, 
   List, 
@@ -175,9 +176,8 @@ function App() {
       setAuthLoading(true);
       let configured = false;
       try {
-        const mod = (await import('../amplify_outputs.json')) as any;
-        const outputs = (mod && typeof mod === 'object' && 'default' in mod) ? mod.default : mod;
-        if (outputs && outputs.auth && outputs.auth.user_pool_id) {
+        const outputs = await loadAmplifyOutputs();
+        if (outputs) {
           setIsAmplifyConfigured(true);
           configured = true;
         } else {
@@ -413,7 +413,7 @@ function App() {
               <div className="step-content">
                 <p style={{ fontWeight: 600, marginBottom: '0.25rem', color: 'var(--text-primary)' }}>Reload Application</p>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
-                  Once deployment finishes, <code>amplify_outputs.json</code> will be generated in the root. Refresh this page to access the login gate.
+                  Once deployment finishes, copy <code>amplify_outputs.json</code> to <code>public/amplify_outputs.json</code> and refresh this page.
                 </p>
               </div>
             </div>

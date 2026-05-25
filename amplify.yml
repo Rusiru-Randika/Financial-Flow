@@ -9,6 +9,7 @@ frontend:
   phases:
     build:
       commands:
+        - if [ -f amplify_outputs.json ]; then cp amplify_outputs.json public/amplify_outputs.json; fi
         - npm run build
   artifacts:
     baseDirectory: dist

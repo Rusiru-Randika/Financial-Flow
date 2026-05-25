@@ -1,0 +1,14 @@
+{
+  "auth": {
+    "user_pool_id": "",
+    "aws_region": "",
+    "user_pool_client_id": "",
+    "identity_pool_id": ""
+  },
+  "data": {
+    "url": "",
+    "aws_region": "",
+    "default_authorization_type": "AMAZON_COGNITO_USER_POOLS",
+    "authorization_types": []
+  }
+}
