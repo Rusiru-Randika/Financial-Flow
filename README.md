@@ -1,73 +1,172 @@
-# React + TypeScript + Vite
+# 💸 Financial Flow (Budget Tracker)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Financial Flow is a personal finance tracker that helps you manage **expenses**, **income**, and **debts (receivables/payables)** across custom **financial cycles**. The UI is optimized for desktop and mobile, and supports a lightweight PWA install.
 
-Currently, two official plugins are available:
+## ✨ Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Dashboard**
+  - Summary cards and charts for income/expense trends
+  - **Recent Expenses** list (defaults to **3 rows** with a **View more** toggle)
+  - Category breakdown / quick insights
+- **Expenses / Income Ledger**
+  - Add, edit, delete transactions
+  - Filters: search, type, category, date range
+  - **Math input for Amount** (e.g. `1000 + 400 + 400`) with a live preview
+- **Debts Manager**
+  - Track **Receivables** (owed to you) and **Payables** (you owe)
+  - Mark settled/unsettled, edit, delete
+  - Math input supported for Amount
+- **Financial Cycles (Months)**
+  - Start a new cycle, auto-close the previous cycle end date
+- **Cloud Sync (AWS Amplify Gen 2)**
+  - Cognito authentication (Sign in / Sign up / Email verification)
+  - **Forgot password** + reset flow
+  - Data stored via AppSync + DynamoDB models
+- **PWA basics**
+  - Service worker (registered outside localhost)
+  - Home Screen icon support for iOS via PNG `apple-touch-icon`
 
-## React Compiler
+## 🧰 Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Frontend:** React 19, TypeScript, Vite
+- **UI:** Custom CSS + Lucide icons
+- **Backend (optional / cloud):** AWS Amplify Gen 2 (`amplify/`), Cognito Auth, AppSync GraphQL, DynamoDB
 
-## Expanding the ESLint configuration
+## 🗂️ Project Structure
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- `src/` – React app
+  - `src/App.tsx` – App shell, tabs/navigation, data loading
+  - `src/components/` – Dashboard, Transactions, Debts, Auth
+  - `src/dbConnector.ts` – Local/Amplify data bridge
+  - `src/utils/math.ts` – CSP-safe math expression parser
+- `amplify/` – Amplify Gen 2 backend definition
+  - `amplify/backend.ts` – Backend entry
+  - `amplify/data/resource.ts` – Data models
+  - `amplify/auth/resource.ts` – Auth resource
+- `public/` – Static assets, manifest, service worker
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## 🚀 Getting Started
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### ✅ Prerequisites
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- Node.js (recommended: current LTS)
+- npm
+
+### 📦 Install
+
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 🧪 Run (dev)
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run dev
 ```
+
+### 🏗️ Build
+
+```bash
+npm run build
+```
+
+Notes:
+
+- Build runs `prebuild` which generates PNG icons for PWA/iOS.
+- Output goes to `dist/`.
+
+### 👀 Preview production build
+
+```bash
+npm run preview
+```
+
+## ☁️ AWS Amplify (Cloud Backend)
+
+This project is set up for Amplify Gen 2. The backend definition is in `amplify/`.
+
+### 🧱 Data Models
+
+Defined in `amplify/data/resource.ts`:
+
+- `FinancialMonth` – cycle metadata (name/start/end/active)
+- `Expense` – transactions (both EXPENSE and INCOME)
+- `Debt` – receivables/payables (with settled flag)
+
+Authorization uses owner-based access (each signed-in user sees their own records).
+
+### 🧪 Run a sandbox backend
+
+From the project root:
+
+```bash
+npx ampx sandbox
+```
+
+This will provision backend resources in your AWS account and generate/update `amplify_outputs.json`.
+
+### 🔎 How the app detects Amplify
+
+On startup, the app attempts to load `amplify_outputs.json`. If it contains a valid auth configuration, Amplify is configured (see `src/main.tsx`).
+
+If Amplify is not configured, the UI shows instructions for connecting a backend.
+
+## 🧮 Amount “Math Supported” Input
+
+Amount fields accept basic expressions:
+
+- Operators: `+ - * /`
+- Parentheses: `( )`
+- Decimals: `12.50`
+- Unary minus: `-500 + 1000`
+
+The parser is CSP-safe (no `eval`/`new Function`) and lives in `src/utils/math.ts`.
+
+## 📲 PWA / iOS Home Screen Icon
+
+iOS Home Screen icons are most reliable with PNG `apple-touch-icon`.
+
+- Manifest: `public/site.webmanifest`
+- iOS icon tag: `index.html`
+- PNG generator: `scripts/generate-pwa-icons.mjs`
+
+Generate icons manually:
+
+```bash
+npm run generate:icons
+```
+
+If you change the logo and iOS still shows the old icon:
+
+- Delete the existing Home Screen shortcut
+- Add to Home Screen again (iOS caches icons aggressively)
+
+## 🔐 Security Notes
+
+- Do **not** commit real secrets (AWS access keys, tokens, `.env` files).
+- `amplify_outputs.json` contains identifiers/endpoints (Cognito IDs and GraphQL URL). Treat it as configuration; it is not an AWS secret key.
+- The Amplify Console “Data” table is an admin view; values stored in DynamoDB will be visible there to anyone with AWS console access.
+
+## 🛠️ Troubleshooting
+
+### “Invalid math expression” even for simple numbers
+
+The app uses a strict Content Security Policy (CSP) which blocks `eval`/`Function`. Math evaluation is implemented via a parser in `src/utils/math.ts`.
+
+### Amplify configured but app can’t sign in
+
+- Confirm `amplify_outputs.json` is present and matches your deployed environment
+- Ensure the backend is deployed and Cognito User Pool exists
+
+### iOS “Add to Home Screen” shows no logo
+
+- Ensure `public/apple-touch-icon.png` exists
+- Remove old Home Screen icon and re-add
+
+## 📜 Scripts
+
+- `npm run dev` – start dev server
+- `npm run build` – production build (also generates icons)
+- `npm run preview` – preview build
+- `npm run lint` – lint
+- `npm run generate:icons` – generate PNG icons for manifest + iOS
