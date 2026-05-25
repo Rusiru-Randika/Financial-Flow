@@ -175,8 +175,9 @@ function App() {
       setAuthLoading(true);
       let configured = false;
       try {
-        const config = (await import('../amplify_outputs.json')) as any;
-        if (config && config.auth && config.auth.user_pool_id) {
+        const mod = (await import('../amplify_outputs.json')) as any;
+        const outputs = (mod && typeof mod === 'object' && 'default' in mod) ? mod.default : mod;
+        if (outputs && outputs.auth && outputs.auth.user_pool_id) {
           setIsAmplifyConfigured(true);
           configured = true;
         } else {

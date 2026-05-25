@@ -7,12 +7,13 @@ import './index.css';
 const bootstrap = async () => {
   try {
     // Dynamic import to prevent compiler crashes on local mode runs
-    const config = (await import('../amplify_outputs.json')) as any;
+    const mod = (await import('../amplify_outputs.json')) as any;
+    const outputs = (mod && typeof mod === 'object' && 'default' in mod) ? mod.default : mod;
     
     // Check if configuration matches a valid deployment
-    if (config && config.auth && config.auth.user_pool_id) {
+    if (outputs && outputs.auth && outputs.auth.user_pool_id) {
       const { Amplify } = await import('aws-amplify');
-      Amplify.configure(config.default);
+      Amplify.configure(outputs);
       console.log('AWS Amplify initialized successfully.');
     } else {
       console.log('AWS Amplify configuration not detected. Defaulting to Local Storage Mode.');
