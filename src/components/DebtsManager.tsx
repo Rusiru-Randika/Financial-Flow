@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import type { Debt, DebtType } from '../types';
 import { dbConnector } from '../dbConnector';
 import { evaluateExpression } from '../utils/math';
@@ -21,12 +21,30 @@ interface DebtsManagerProps {
 }
 
 export const DebtsManager: React.FC<DebtsManagerProps> = ({ debts, selectedMonthId, onNotify, onRefresh }) => {
+  // Unique person names from all debts for autocomplete
+  const knownPersons = useMemo(
+    () => Array.from(new Set(debts.map(d => d.person).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+    [debts]
+  );
+
   // Form State
   const [person, setPerson] = useState('');
+  const [personDropdownOpen, setPersonDropdownOpen] = useState(false);
+  const personWrapperRef = useRef<HTMLDivElement>(null);
   const [type, setType] = useState<DebtType>('RECEIVABLE');
   const [date, setDate] = useState(new Date().toISOString().substring(0, 10));
   const [amountExpr, setAmountExpr] = useState('');
   const [notes, setNotes] = useState('');
+
+  // Edit person dropdown state
+  const [editPersonDropdownOpen, setEditPersonDropdownOpen] = useState(false);
+  const editPersonWrapperRef = useRef<HTMLDivElement>(null);
+
+  const filteredPersons = useMemo(
+    () => person ? knownPersons.filter(n => n.toLowerCase().includes(person.toLowerCase()) && n.toLowerCase() !== person.toLowerCase()) : knownPersons,
+    [knownPersons, person]
+  );
+
 
   const previewAmount = amountExpr ? evaluateExpression(amountExpr) : 0;
 
@@ -38,6 +56,11 @@ export const DebtsManager: React.FC<DebtsManagerProps> = ({ debts, selectedMonth
   const [editAmountExpr, setEditAmountExpr] = useState('');
   const [editNotes, setEditNotes] = useState('');
   const editPreviewAmount = editAmountExpr ? evaluateExpression(editAmountExpr) : 0;
+
+  const filteredEditPersons = useMemo(
+    () => editPerson ? knownPersons.filter(n => n.toLowerCase().includes(editPerson.toLowerCase()) && n.toLowerCase() !== editPerson.toLowerCase()) : knownPersons,
+    [knownPersons, editPerson]
+  );
 
   const openEdit = (d: Debt) => {
     setEditingDebt(d);
@@ -151,6 +174,23 @@ export const DebtsManager: React.FC<DebtsManagerProps> = ({ debts, selectedMonth
     [debts]
   );
 
+  // Per-person totals (unsettled only)
+  const receivablesByPerson = useMemo(() => {
+    const map: Record<string, number> = {};
+    receivables.filter(d => !d.settled).forEach(d => {
+      map[d.person] = (map[d.person] || 0) + d.amount;
+    });
+    return Object.entries(map).sort((a, b) => b[1] - a[1]);
+  }, [receivables]);
+
+  const payablesByPerson = useMemo(() => {
+    const map: Record<string, number> = {};
+    payables.filter(d => !d.settled).forEach(d => {
+      map[d.person] = (map[d.person] || 0) + d.amount;
+    });
+    return Object.entries(map).sort((a, b) => b[1] - a[1]);
+  }, [payables]);
+
   return (
     <div className="content-grid debts-content-grid" style={{ height: '100%', alignItems: 'stretch' }}>
       {/* Left Columns: Split Receivables and Payables Lists */}
@@ -167,6 +207,17 @@ export const DebtsManager: React.FC<DebtsManagerProps> = ({ debts, selectedMonth
                 Owed to You
               </span>
             </div>
+
+            {receivablesByPerson.length > 0 && (
+              <div className="debt-person-summary">
+                {receivablesByPerson.map(([name, total]) => (
+                  <div key={name} className="debt-person-chip receivable">
+                    <span className="debt-person-chip-name">{name}</span>
+                    <span className="debt-person-chip-amount">LKR {total.toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className="debt-card-list">
               {receivables.length === 0 ? (
@@ -225,6 +276,17 @@ export const DebtsManager: React.FC<DebtsManagerProps> = ({ debts, selectedMonth
                 You Owe
               </span>
             </div>
+
+            {payablesByPerson.length > 0 && (
+              <div className="debt-person-summary">
+                {payablesByPerson.map(([name, total]) => (
+                  <div key={name} className="debt-person-chip payable">
+                    <span className="debt-person-chip-name">{name}</span>
+                    <span className="debt-person-chip-amount">LKR {total.toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className="debt-card-list">
               {payables.length === 0 ? (
@@ -323,14 +385,32 @@ export const DebtsManager: React.FC<DebtsManagerProps> = ({ debts, selectedMonth
             <label className="form-label">
               <User size={12} style={{ marginRight: '0.35rem' }} /> Person Name
             </label>
-            <input
-              type="text"
-              className="input-control"
-              placeholder="e.g. Jhon"
-              value={person}
-              onChange={(e) => setPerson(e.target.value)}
-              required
-            />
+            <div className="combo-input-wrapper" ref={personWrapperRef}>
+              <input
+                type="text"
+                className="input-control"
+                placeholder="e.g. John"
+                value={person}
+                onChange={(e) => { setPerson(e.target.value); setPersonDropdownOpen(true); }}
+                onFocus={() => setPersonDropdownOpen(true)}
+                onBlur={() => setTimeout(() => setPersonDropdownOpen(false), 150)}
+                required
+                autoComplete="off"
+              />
+              {personDropdownOpen && filteredPersons.length > 0 && (
+                <div className="combo-dropdown">
+                  {filteredPersons.map(name => (
+                    <div
+                      key={name}
+                      className="combo-dropdown-item"
+                      onMouseDown={(e) => { e.preventDefault(); setPerson(name); setPersonDropdownOpen(false); }}
+                    >
+                      {name}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Amount Formula */}
@@ -421,13 +501,31 @@ export const DebtsManager: React.FC<DebtsManagerProps> = ({ debts, selectedMonth
                 <label className="form-label">
                   <User size={12} style={{ marginRight: '0.35rem' }} /> Person Name
                 </label>
-                <input
-                  type="text"
-                  className="input-control"
-                  value={editPerson}
-                  onChange={(e) => setEditPerson(e.target.value)}
-                  required
-                />
+                <div className="combo-input-wrapper" ref={editPersonWrapperRef}>
+                  <input
+                    type="text"
+                    className="input-control"
+                    value={editPerson}
+                    onChange={(e) => { setEditPerson(e.target.value); setEditPersonDropdownOpen(true); }}
+                    onFocus={() => setEditPersonDropdownOpen(true)}
+                    onBlur={() => setTimeout(() => setEditPersonDropdownOpen(false), 150)}
+                    required
+                    autoComplete="off"
+                  />
+                  {editPersonDropdownOpen && filteredEditPersons.length > 0 && (
+                    <div className="combo-dropdown">
+                      {filteredEditPersons.map(name => (
+                        <div
+                          key={name}
+                          className="combo-dropdown-item"
+                          onMouseDown={(e) => { e.preventDefault(); setEditPerson(name); setEditPersonDropdownOpen(false); }}
+                        >
+                          {name}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="form-group">
