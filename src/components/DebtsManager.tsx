@@ -175,21 +175,31 @@ export const DebtsManager: React.FC<DebtsManagerProps> = ({ debts, selectedMonth
   );
 
   // Per-person totals (unsettled only)
-  const receivablesByPerson = useMemo(() => {
+  const receivableMap = useMemo(() => {
     const map: Record<string, number> = {};
     receivables.filter(d => !d.settled).forEach(d => {
       map[d.person] = (map[d.person] || 0) + d.amount;
     });
-    return Object.entries(map).sort((a, b) => b[1] - a[1]);
+    return map;
   }, [receivables]);
 
-  const payablesByPerson = useMemo(() => {
+  const payableMap = useMemo(() => {
     const map: Record<string, number> = {};
     payables.filter(d => !d.settled).forEach(d => {
       map[d.person] = (map[d.person] || 0) + d.amount;
     });
-    return Object.entries(map).sort((a, b) => b[1] - a[1]);
+    return map;
   }, [payables]);
+
+  const receivablesByPerson = useMemo(
+    () => Object.entries(receivableMap).sort((a, b) => b[1] - a[1]),
+    [receivableMap]
+  );
+
+  const payablesByPerson = useMemo(
+    () => Object.entries(payableMap).sort((a, b) => b[1] - a[1]),
+    [payableMap]
+  );
 
   return (
     <div className="content-grid debts-content-grid" style={{ height: '100%', alignItems: 'stretch' }}>
@@ -210,12 +220,21 @@ export const DebtsManager: React.FC<DebtsManagerProps> = ({ debts, selectedMonth
 
             {receivablesByPerson.length > 0 && (
               <div className="debt-person-summary">
-                {receivablesByPerson.map(([name, total]) => (
-                  <div key={name} className="debt-person-chip receivable">
-                    <span className="debt-person-chip-name">{name}</span>
-                    <span className="debt-person-chip-amount">LKR {total.toFixed(2)}</span>
-                  </div>
-                ))}
+                {receivablesByPerson.map(([name, total]) => {
+                  const otherSide = payableMap[name] || 0;
+                  const net = total - otherSide;
+                  return (
+                    <div key={name} className="debt-person-chip receivable">
+                      <span className="debt-person-chip-name">{name}</span>
+                      <span className="debt-person-chip-amount">LKR {total.toFixed(2)}</span>
+                      {otherSide > 0 && net >= 0 && (
+                        <span className="debt-person-chip-net positive">
+                          Net: + LKR {net.toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
 
@@ -279,12 +298,21 @@ export const DebtsManager: React.FC<DebtsManagerProps> = ({ debts, selectedMonth
 
             {payablesByPerson.length > 0 && (
               <div className="debt-person-summary">
-                {payablesByPerson.map(([name, total]) => (
-                  <div key={name} className="debt-person-chip payable">
-                    <span className="debt-person-chip-name">{name}</span>
-                    <span className="debt-person-chip-amount">LKR {total.toFixed(2)}</span>
-                  </div>
-                ))}
+                {payablesByPerson.map(([name, total]) => {
+                  const otherSide = receivableMap[name] || 0;
+                  const net = total - otherSide;
+                  return (
+                    <div key={name} className="debt-person-chip payable">
+                      <span className="debt-person-chip-name">{name}</span>
+                      <span className="debt-person-chip-amount">LKR {total.toFixed(2)}</span>
+                      {otherSide > 0 && net >= 0 && (
+                        <span className="debt-person-chip-net negative">
+                          Net: − LKR {net.toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
 

@@ -1275,6 +1275,26 @@ button, input, select, textarea {
   color: var(--status-expense);
 }
 
+.debt-person-chip-net {
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  padding: 0.15rem 0.45rem;
+  border-radius: 5px;
+  white-space: nowrap;
+}
+
+.debt-person-chip-net.positive {
+  color: var(--status-income);
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.debt-person-chip-net.negative {
+  color: var(--status-expense);
+  background: rgba(244, 63, 94, 0.1);
+}
+
 /* --- NOTION IMPORTER STYLES --- */
 .importer-container {
   display: grid;

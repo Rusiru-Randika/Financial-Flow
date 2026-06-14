@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import type { Transaction, Debt } from '../types';
-import { ArrowDownRight, ArrowUpRight, Users, Wallet, Calendar, BarChart2, PieChart, TrendingUp } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Users, Wallet, Calendar, BarChart2, PieChart, TrendingUp, Shield, Zap } from 'lucide-react';
 
 interface DashboardProps {
   transactions: Transaction[];
@@ -45,42 +45,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ transactions, debts }) => 
     new Set([...Object.keys(dailyExpense), ...Object.keys(dailyIncome)])
   ).sort((a, b) => Number(a) - Number(b));
 
-  const dailyNetSeries = dayKeys.map((day) => {
-    const expenseVal = dailyExpense[day] || 0;
-    const incomeVal = dailyIncome[day] || 0;
-    return { day, expense: expenseVal, income: incomeVal, net: incomeVal - expenseVal };
-  });
-
-  let running = 0;
-  const cumulativeSeries = dailyNetSeries.map((d) => {
-    running += d.net;
-    return { ...d, cumulative: running };
-  });
-
-  const netMin = dailyNetSeries.length ? Math.min(...dailyNetSeries.map((d) => d.net), 0) : 0;
-  const netMax = dailyNetSeries.length ? Math.max(...dailyNetSeries.map((d) => d.net), 0) : 1;
-  const cumMin = cumulativeSeries.length ? Math.min(...cumulativeSeries.map((d) => d.cumulative), 0) : 0;
-  const cumMax = cumulativeSeries.length ? Math.max(...cumulativeSeries.map((d) => d.cumulative), 0) : 1;
-
-  const makeLinePoints = (
-    values: number[],
-    chartWidth: number,
-    chartHeight: number,
-    minVal: number,
-    maxVal: number,
-    padX = 26,
-    padY = 12
-  ) => {
-    const w = chartWidth - padX * 2;
-    const h = chartHeight - padY * 2;
-    const span = Math.max(1e-9, maxVal - minVal);
-    return values.map((v, i) => {
-      const x = padX + (values.length === 1 ? w / 2 : (i / (values.length - 1)) * w);
-      const y = padY + (1 - (v - minVal) / span) * h;
-      return { x, y };
-    });
-  };
-
   // Category summary
   const categoryTotals: { [key: string]: number } = {};
   expenses.forEach(t => {
@@ -104,22 +68,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ transactions, debts }) => 
     'Others':              '#64748b',
   };
 
-  // Debt activity (by day)
-  const dailyReceivable: Record<string, number> = {};
-  const dailyPayable: Record<string, number> = {};
-  debts.forEach((d) => {
-    const day = d.date.substring(8, 10);
-    if (d.type === 'RECEIVABLE') dailyReceivable[day] = (dailyReceivable[day] || 0) + d.amount;
-    if (d.type === 'PAYABLE') dailyPayable[day] = (dailyPayable[day] || 0) + d.amount;
-  });
-  const debtDays = Array.from(
-    new Set([...Object.keys(dailyReceivable), ...Object.keys(dailyPayable)])
-  ).sort((a, b) => Number(a) - Number(b));
-  const debtSeries = debtDays.map((day) => ({
-    day,
-    receivable: dailyReceivable[day] || 0,
-    payable: dailyPayable[day] || 0,
-  }));
+
 
   // Donut
   let accumulatedAngle = 0;
@@ -138,6 +87,37 @@ export const Dashboard: React.FC<DashboardProps> = ({ transactions, debts }) => 
   const largestExpense = expenses.reduce((max, t) => (t.amount > max ? t.amount : max), 0);
   const expenseDays = Object.keys(dailyExpense).length;
   const avgExpensePerDay = expenseDays > 0 ? totalExpenses / expenseDays : 0;
+
+  // Savings rate
+  const savingsRate = totalIncomes > 0 ? ((totalIncomes - totalExpenses) / totalIncomes) * 100 : 0;
+
+  // Top 5 biggest expenses
+  const topExpenses = useMemo(
+    () => [...expenses].sort((a, b) => b.amount - a.amount).slice(0, 5),
+    [expenses]
+  );
+
+  // Debt summary: per-person net balance
+  const debtByPerson = useMemo(() => {
+    const map: Record<string, { receivable: number; payable: number }> = {};
+    debts.filter(d => !d.settled).forEach(d => {
+      if (!map[d.person]) map[d.person] = { receivable: 0, payable: 0 };
+      if (d.type === 'RECEIVABLE') map[d.person].receivable += d.amount;
+      else map[d.person].payable += d.amount;
+    });
+    return Object.entries(map)
+      .map(([person, { receivable, payable }]) => ({ person, receivable, payable, net: receivable - payable }))
+      .sort((a, b) => Math.abs(b.net) - Math.abs(a.net));
+  }, [debts]);
+
+  // Days elapsed in current month & days remaining
+  const today = new Date();
+  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+  const dayOfMonth = today.getDate();
+  const projectedMonthExpense = expenseDays > 0 ? (totalExpenses / dayOfMonth) * daysInMonth : 0;
+
+  // Expense ratio (expense / income)
+  const expenseRatio = totalIncomes > 0 ? (totalExpenses / totalIncomes) * 100 : (totalExpenses > 0 ? 100 : 0);
 
   const chartMinH = 120;
 
@@ -275,158 +255,112 @@ export const Dashboard: React.FC<DashboardProps> = ({ transactions, debts }) => 
             </div>
           </div>
 
-          {/* Daily Net Cashflow */}
+          {/* Savings & Spending Pace */}
           <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
             <div className="chart-card-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                <TrendingUp size={14} style={{ color: 'var(--accent-teal)' }} />
-                <h3 className="chart-title">Daily Net Cashflow</h3>
+                <Shield size={14} style={{ color: savingsRate >= 20 ? 'var(--status-income)' : savingsRate >= 0 ? '#eab308' : 'var(--status-expense)' }} />
+                <h3 className="chart-title">Savings Rate</h3>
               </div>
             </div>
-            <div className="chart-container" style={{ flex: '1 1 0', minHeight: chartMinH }}>
-              {dailyNetSeries.length === 0 ? (
+            <div className="chart-container" style={{ flex: '1 1 0', minHeight: chartMinH, flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}>
+              {totalIncomes === 0 && totalExpenses === 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)' }}>
-                  <TrendingUp size={28} style={{ opacity: 0.25 }} />
-                  <span style={{ fontSize: '0.8rem' }}>No daily data</span>
+                  <Shield size={28} style={{ opacity: 0.25 }} />
+                  <span style={{ fontSize: '0.8rem' }}>No data yet</span>
                 </div>
               ) : (
-                (() => {
-                  const w = 520;
-                  const h = 140;
-                  const padX = 28;
-                  const padY = 14;
-                  const points = makeLinePoints(dailyNetSeries.map((d) => d.net), w, h, netMin, netMax, padX, padY);
-                  const baselineY = makeLinePoints([0], w, h, netMin, netMax, padX, padY)[0].y;
-                  const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-                  const area = `${path} L ${points[points.length - 1].x} ${baselineY} L ${points[0].x} ${baselineY} Z`;
-
-                  return (
-                    <svg className="svg-chart" viewBox={`0 0 ${w} ${h}`}>
-                      {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
-                        const y = padY + ratio * (h - padY * 2);
-                        return <line key={i} x1={padX} y1={y} x2={w - padX} y2={y} className="svg-grid-line" />;
-                      })}
-                      <line x1={padX} y1={baselineY} x2={w - padX} y2={baselineY} stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
-                      <defs>
-                        <linearGradient id="netArea" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="var(--accent-teal)" stopOpacity="0.35" />
-                          <stop offset="100%" stopColor="var(--accent-teal)" stopOpacity="0.05" />
-                        </linearGradient>
-                      </defs>
-                      <path d={area} fill="url(#netArea)" />
-                      <path d={path} fill="none" stroke="var(--accent-teal)" strokeWidth="2" />
-                      {points.map((p, idx) => (
-                        <circle key={idx} cx={p.x} cy={p.y} r="2.5" fill={dailyNetSeries[idx].net >= 0 ? 'var(--status-income)' : 'var(--status-expense)'} />
-                      ))}
-                    </svg>
-                  );
-                })()
+                <>
+                  <svg viewBox="0 0 120 70" style={{ width: '100%', maxWidth: '180px' }}>
+                    <path d="M 15 60 A 45 45 0 0 1 105 60" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="8" strokeLinecap="round" />
+                    <path d="M 15 60 A 45 45 0 0 1 105 60" fill="none"
+                      stroke={savingsRate >= 20 ? 'var(--status-income)' : savingsRate >= 0 ? '#eab308' : 'var(--status-expense)'}
+                      strokeWidth="8" strokeLinecap="round"
+                      strokeDasharray={`${Math.max(0, Math.min(100, savingsRate)) / 100 * 141.37} 141.37`}
+                    />
+                    <text x="60" y="52" fill="var(--text-primary)" fontSize="16" fontWeight="bold" textAnchor="middle" fontFamily="var(--font-display)">
+                      {savingsRate.toFixed(0)}%
+                    </text>
+                    <text x="60" y="65" fill="var(--text-muted)" fontSize="7" textAnchor="middle">saved</text>
+                  </svg>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', width: '100%', fontSize: '0.76rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+                      <span>Avg / day</span>
+                      <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>LKR {fmtLKR(avgExpensePerDay)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+                      <span>Projected month</span>
+                      <span style={{ fontWeight: 700, color: projectedMonthExpense > totalIncomes ? 'var(--status-expense)' : 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>LKR {fmtLKR(projectedMonthExpense)}</span>
+                    </div>
+                  </div>
+                </>
               )}
             </div>
           </div>
 
-          {/* Cumulative Balance */}
+          {/* Top Expenses */}
           <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
             <div className="chart-card-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                <Wallet size={14} style={{ color: 'var(--accent-primary)' }} />
-                <h3 className="chart-title">Cumulative Balance</h3>
+                <Zap size={14} style={{ color: '#f59e0b' }} />
+                <h3 className="chart-title">Top Expenses</h3>
               </div>
             </div>
-            <div className="chart-container" style={{ flex: '1 1 0', minHeight: chartMinH }}>
-              {cumulativeSeries.length === 0 ? (
+            <div className="chart-container" style={{ flex: '1 1 0', minHeight: chartMinH, flexDirection: 'column', justifyContent: 'flex-start', gap: '0.1rem', alignItems: 'stretch', overflowY: 'auto' }}>
+              {topExpenses.length === 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)' }}>
-                  <Wallet size={28} style={{ opacity: 0.25 }} />
-                  <span style={{ fontSize: '0.8rem' }}>No data</span>
+                  <Zap size={28} style={{ opacity: 0.25 }} />
+                  <span style={{ fontSize: '0.8rem' }}>No expenses yet</span>
                 </div>
               ) : (
-                (() => {
-                  const w = 520;
-                  const h = 140;
-                  const padX = 28;
-                  const padY = 14;
-                  const points = makeLinePoints(cumulativeSeries.map((d) => d.cumulative), w, h, cumMin, cumMax, padX, padY);
-                  const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-                  const last = cumulativeSeries[cumulativeSeries.length - 1].cumulative;
+                topExpenses.map((tx, i) => {
+                  const pct = largestExpense > 0 ? (tx.amount / largestExpense) * 100 : 0;
                   return (
-                    <svg className="svg-chart" viewBox={`0 0 ${w} ${h}`}>
-                      {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
-                        const y = padY + ratio * (h - padY * 2);
-                        return <line key={i} x1={padX} y1={y} x2={w - padX} y2={y} className="svg-grid-line" />;
-                      })}
-                      <path d={path} fill="none" stroke={last >= 0 ? 'var(--status-income)' : 'var(--status-expense)'} strokeWidth="2.25" />
-                      <circle cx={points[points.length - 1].x} cy={points[points.length - 1].y} r="3" fill={last >= 0 ? 'var(--status-income)' : 'var(--status-expense)'} />
-                    </svg>
+                    <div key={tx.id} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.4rem 0', borderBottom: i < topExpenses.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                      <span style={{ width: '18px', fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'center', flexShrink: 0 }}>{i + 1}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '0.5rem' }}>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tx.description}</span>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--status-expense)', fontVariantNumeric: 'tabular-nums', flexShrink: 0, fontFamily: 'var(--font-display)' }}>LKR {tx.amount.toFixed(2)}</span>
+                        </div>
+                        <div style={{ height: '3px', borderRadius: '999px', background: 'rgba(255,255,255,0.04)', marginTop: '0.3rem', overflow: 'hidden' }}>
+                          <div style={{ width: `${pct}%`, height: '100%', background: 'var(--status-expense)', borderRadius: '999px', opacity: 0.7 }} />
+                        </div>
+                      </div>
+                    </div>
                   );
-                })()
+                })
               )}
             </div>
           </div>
 
-          {/* Receivables vs Payables trend */}
+          {/* Debt Summary */}
           <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
             <div className="chart-card-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
                 <Users size={14} style={{ color: 'var(--accent-primary)' }} />
-                <h3 className="chart-title">Receivables vs Payables</h3>
+                <h3 className="chart-title">Debt Summary</h3>
+              </div>
+              <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                <span style={{ color: 'var(--status-income)' }}>● Owed to you</span>
+                <span style={{ color: 'var(--status-expense)' }}>● You owe</span>
               </div>
             </div>
-            <div className="chart-container" style={{ flex: '1 1 0', minHeight: chartMinH, paddingBottom: '1.6rem' }}>
-              {debtSeries.length === 0 ? (
+            <div className="chart-container" style={{ flex: '1 1 0', minHeight: chartMinH, flexDirection: 'column', justifyContent: 'flex-start', gap: '0.1rem', alignItems: 'stretch', overflowY: 'auto' }}>
+              {debtByPerson.length === 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)' }}>
                   <Users size={28} style={{ opacity: 0.25 }} />
-                  <span style={{ fontSize: '0.8rem' }}>No debt activity</span>
+                  <span style={{ fontSize: '0.8rem' }}>No outstanding debts</span>
                 </div>
               ) : (
-                (() => {
-                  const w = 360;
-                  const h = 140;
-                  const padX = 28;
-                  const padY = 14;
-                  const maxVal = Math.max(
-                    ...debtSeries.map((d) => Math.max(d.receivable, d.payable)),
-                    1
-                  );
-                  const rPts = makeLinePoints(debtSeries.map((d) => d.receivable), w, h, 0, maxVal, padX, padY);
-                  const pPts = makeLinePoints(debtSeries.map((d) => d.payable), w, h, 0, maxVal, padX, padY);
-                  const rPath = rPts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-                  const pPath = pPts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-
-                  return (
-                    <svg className="svg-chart" viewBox={`0 0 ${w} ${h}`}>
-                      {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
-                        const y = padY + ratio * (h - padY * 2);
-                        return <line key={i} x1={padX} y1={y} x2={w - padX} y2={y} className="svg-grid-line" />;
-                      })}
-                      <path d={rPath} fill="none" stroke="var(--status-income)" strokeWidth="2" />
-                      <path d={pPath} fill="none" stroke="var(--status-expense)" strokeWidth="2" />
-                    </svg>
-                  );
-                })()
-              )}
-
-              {debtSeries.length > 0 && (
-                <div
-                  className="chart-legend"
-                  style={{
-                    position: 'absolute',
-                    bottom: '0.55rem',
-                    left: 0,
-                    right: 0,
-                    marginTop: 0,
-                    fontSize: '0.75rem',
-                    gap: '1.25rem',
-                  }}
-                >
-                  <div className="legend-item">
-                    <span className="legend-color" style={{ backgroundColor: 'var(--status-income)' }} />
-                    Receivable
+                debtByPerson.map((d, i) => (
+                  <div key={d.person} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', padding: '0.45rem 0', borderBottom: i < debtByPerson.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{d.person}</span>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 700, fontFamily: 'var(--font-display)', fontVariantNumeric: 'tabular-nums', flexShrink: 0, color: d.net >= 0 ? 'var(--status-income)' : 'var(--status-expense)' }}>
+                      {d.net >= 0 ? '+' : '−'} LKR {Math.abs(d.net).toFixed(2)}
+                    </span>
                   </div>
-                  <div className="legend-item">
-                    <span className="legend-color" style={{ backgroundColor: 'var(--status-expense)' }} />
-                    Payable
-                  </div>
-                </div>
+                ))
               )}
             </div>
           </div>
@@ -515,30 +449,49 @@ export const Dashboard: React.FC<DashboardProps> = ({ transactions, debts }) => 
             </div>
           </div>
 
-          {/* KPI Chips */}
+          {/* Financial Health */}
           <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
             <div className="chart-card-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                <Calendar size={14} style={{ color: 'var(--accent-violet)' }} />
-                <h3 className="chart-title">Quick Insights</h3>
+                <TrendingUp size={14} style={{ color: 'var(--accent-violet)' }} />
+                <h3 className="chart-title">Financial Health</h3>
               </div>
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignContent: 'flex-start', flex: '1 1 0' }}>
-              <span className="tag" style={{ backgroundColor: 'rgba(16,185,129,0.12)', borderColor: 'rgba(16,185,129,0.22)', color: 'var(--text-primary)' }}>
-                {incomes.length} incomes
-              </span>
-              <span className="tag" style={{ backgroundColor: 'rgba(244,63,94,0.12)', borderColor: 'rgba(244,63,94,0.22)', color: 'var(--text-primary)' }}>
-                {expenses.length} expenses
-              </span>
-              <span className="tag" style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.08)', color: 'var(--text-primary)' }}>
-                Avg expense/day: LKR {fmtLKR(avgExpensePerDay)}
-              </span>
-              <span className="tag" style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.08)', color: 'var(--text-primary)' }}>
-                Largest expense: LKR {fmtLKR(largestExpense)}
-              </span>
-              <span className="tag" style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.08)', color: 'var(--text-primary)' }}>
-                Active days: {dayKeys.length}
-              </span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', flex: '1 1 0' }}>
+              {/* Expense Ratio */}
+              <div style={{ padding: '0.55rem 0.75rem', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                  <span style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>Expense Ratio</span>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 700, color: expenseRatio > 90 ? 'var(--status-expense)' : expenseRatio > 70 ? '#eab308' : 'var(--status-income)', fontFamily: 'var(--font-display)' }}>
+                    {expenseRatio.toFixed(1)}%
+                  </span>
+                </div>
+                <div style={{ height: '6px', borderRadius: '999px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                  <div style={{ width: `${Math.min(100, expenseRatio)}%`, height: '100%', borderRadius: '999px', background: expenseRatio > 90 ? 'var(--status-expense)' : expenseRatio > 70 ? '#eab308' : 'var(--status-income)', transition: 'width 0.5s ease' }} />
+                </div>
+              </div>
+
+              {/* Key metrics */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                <div style={{ padding: '0.5rem 0.65rem', borderRadius: '8px', background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.12)' }}>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>Transactions</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{transactions.length}</div>
+                </div>
+                <div style={{ padding: '0.5rem 0.65rem', borderRadius: '8px', background: 'rgba(244,63,94,0.06)', border: '1px solid rgba(244,63,94,0.12)' }}>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>Largest Expense</div>
+                  <div style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--status-expense)', fontFamily: 'var(--font-display)', fontVariantNumeric: 'tabular-nums' }}>LKR {fmtLKR(largestExpense)}</div>
+                </div>
+                <div style={{ padding: '0.5rem 0.65rem', borderRadius: '8px', background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.12)' }}>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>Active Days</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{dayKeys.length}<span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 400 }}> / {daysInMonth}</span></div>
+                </div>
+                <div style={{ padding: '0.5rem 0.65rem', borderRadius: '8px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.12)' }}>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>Net Debt</div>
+                  <div style={{ fontSize: '0.92rem', fontWeight: 700, color: outstandingReceivables - outstandingPayables >= 0 ? 'var(--status-income)' : 'var(--status-expense)', fontFamily: 'var(--font-display)', fontVariantNumeric: 'tabular-nums' }}>
+                    {outstandingReceivables - outstandingPayables >= 0 ? '+' : '−'} LKR {fmtLKR(Math.abs(outstandingReceivables - outstandingPayables))}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
