@@ -91,7 +91,7 @@ export const Transactions: React.FC<TransactionsProps> = ({
     setEditingTx(null);
   };
 
-  const handleUpdate = async (e) => {
+  const handleUpdate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!editingTx) return;
     if (!editDescription || !editAmountExpr) {
@@ -125,7 +125,7 @@ export const Transactions: React.FC<TransactionsProps> = ({
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!description || !amountExpr) {
       onNotify('Please fill in all required fields.', 'error');
