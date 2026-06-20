@@ -306,7 +306,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ transactions, debts }) => 
                 <h3 className="chart-title">Top Expenses</h3>
               </div>
             </div>
-            <div className="chart-container" style={{ flex: '1 1 0', minHeight: chartMinH, flexDirection: 'column', justifyContent: 'flex-start', gap: '0.1rem', alignItems: 'stretch', overflowY: 'auto' }}>
+            <div className="chart-container" style={{ flex: '1 1 0', minHeight: chartMinH, flexDirection: 'column', justifyContent: 'flex-start', gap: '0.1rem', alignItems: 'stretch', overflowY: 'auto', paddingRight: '0.6rem' }}>
               {topExpenses.length === 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)' }}>
                   <Zap size={28} style={{ opacity: 0.25 }} />
@@ -316,7 +316,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ transactions, debts }) => 
                 topExpenses.map((tx, i) => {
                   const pct = largestExpense > 0 ? (tx.amount / largestExpense) * 100 : 0;
                   return (
-                    <div key={tx.id} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.4rem 0', borderBottom: i < topExpenses.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                    <div key={tx.id} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.4rem 0', marginBottom: '0.2rem', borderBottom: i < topExpenses.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
                       <span style={{ width: '18px', fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'center', flexShrink: 0 }}>{i + 1}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '0.5rem' }}>
@@ -346,7 +346,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ transactions, debts }) => 
                 <span style={{ color: 'var(--status-expense)' }}>● You owe</span>
               </div>
             </div>
-            <div className="chart-container" style={{ flex: '1 1 0', minHeight: chartMinH, flexDirection: 'column', justifyContent: 'flex-start', gap: '0.1rem', alignItems: 'stretch', overflowY: 'auto' }}>
+            <div className="chart-container" style={{ flex: '1 1 0', minHeight: chartMinH, flexDirection: 'column', justifyContent: 'flex-start', gap: '0.1rem', alignItems: 'stretch', overflowY: 'auto', paddingRight: '0.6rem' }}>
               {debtByPerson.length === 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)' }}>
                   <Users size={28} style={{ opacity: 0.25 }} />

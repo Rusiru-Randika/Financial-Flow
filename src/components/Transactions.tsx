@@ -406,7 +406,7 @@ export const Transactions: React.FC<TransactionsProps> = ({
             ) : (
               <>
                 <div className="ledger-table-desktop">
-                  <table className="data-table">
+                  <table className="data-table" style={{ borderSpacing: '0 8px' }}>
                     <thead>
                       <tr>
                         <th>Date</th>
