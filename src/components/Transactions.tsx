@@ -57,6 +57,7 @@ export const Transactions: React.FC<TransactionsProps> = ({
   const [filterCategory, setFilterCategory] = useState<string>('ALL');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  // Always sort by latest date first (descending)
 
   // Form State
   const [date, setDate] = useState(new Date().toISOString().substring(0, 10)); // Default today
@@ -90,7 +91,7 @@ export const Transactions: React.FC<TransactionsProps> = ({
     setEditingTx(null);
   };
 
-  const handleUpdate = async (e: React.FormEvent) => {
+  const handleUpdate = async (e) => {
     e.preventDefault();
     if (!editingTx) return;
     if (!editDescription || !editAmountExpr) {
@@ -124,7 +125,7 @@ export const Transactions: React.FC<TransactionsProps> = ({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!description || !amountExpr) {
       onNotify('Please fill in all required fields.', 'error');
@@ -175,7 +176,7 @@ export const Transactions: React.FC<TransactionsProps> = ({
   };
 
   // Filter transactions list
-  const filteredTransactions = transactions.filter(tx => {
+  let filteredTransactions = transactions.filter(tx => {
     const matchesSearch = tx.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = filterType === 'ALL' || tx.type === filterType;
     const matchesCategory = filterCategory === 'ALL' || tx.category === filterCategory;
@@ -184,6 +185,9 @@ export const Transactions: React.FC<TransactionsProps> = ({
 
     return matchesSearch && matchesType && matchesCategory && matchesStartDate && matchesEndDate;
   });
+
+  // Always sort transactions by latest date first (descending)
+  filteredTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const entryFormBody = (
     <form onSubmit={handleSubmit}>
