@@ -1645,6 +1645,7 @@ button, input, select, textarea {
   }
 
   .debt-card-list {
+    flex: none;
     max-height: 55vh;
   }
 
